@@ -1,3 +1,8 @@
+# Optional / historical. The live host is GitHub Pages
+# (.github/workflows/deploy-pages.yml → https://mhraymondwong.github.io/game-across-time/).
+# Cloudflare Workers/Pages cannot publish this build: one file must be <= 25 MiB,
+# and index.pck (~80 MiB) and index.wasm (~38 MiB) are larger.
+#
 # Cloudflare Workers Static Assets for 《時光裡的她》 (game-across-time).
 # This file does not publish anything until someone runs `wrangler deploy`
 # with an API token. Linking the GitHub repo in the dashboard is documented

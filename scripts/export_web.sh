@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Headless Godot 4.7.2 Web export for Cloudflare static hosting.
+# Headless Godot 4.7.2 Web export into build/web.
+# Commit that directory; .github/workflows/deploy-pages.yml publishes it to
+# GitHub Pages. Cloudflare hosting is optional and blocked by the 25 MiB file limit.
 # Usage:
 #   ./scripts/export_web.sh
 #   GODOT_BIN=/path/to/godot ./scripts/export_web.sh

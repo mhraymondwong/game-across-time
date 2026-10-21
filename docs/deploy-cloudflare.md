@@ -1,10 +1,20 @@
 # 部署到 Cloudflare（HTML5）
 
-《時光裡的她》是 Godot 4.7.2 專案。瀏覽器版必須先**匯出成 HTML5 靜態檔**，Cloudflare 只負責把那些檔案送出去。Workers 與 Pages **不會**執行 Godot，也不會在玩家的瀏覽器以外跑遊戲。
+> **正式站是 GitHub Pages，不是 Cloudflare。**
+>
+> Cloudflare Workers 與 Cloudflare Pages 的單一檔案上限是 **25 MiB**。已匯出的 `build/web/index.pck`（約 80 MiB）與 `build/web/index.wasm`（約 38 MiB）都超過這個上限，所以這包遊戲不能部署到 Cloudflare。
+>
+> 線上版本：<https://mhraymondwong.github.io/game-across-time/>
+>
+> 發佈用 `.github/workflows/deploy-pages.yml`（推上 `main`，或手動 `workflow_dispatch`）。它只上傳已 commit 的 `build/web`，不會在 CI 裡重跑約 118 MiB 的 Godot 匯出，也不需要任何 Cloudflare secret。
+>
+> 子路徑 `/game-across-time/` **不需要** `<base href>`，也 **不需要** 為了 Pages 重新匯出。`index.html` 的 `index.js`、`index.wasm`、`index.pck` 都是相對網址。GitHub Pages 會把 `https://mhraymondwong.github.io/game-across-time` 301 到結尾有斜線的目錄，相對路徑就留在 `/game-across-time/` 裡。這與 `game-chromablock-out` 相同。若寫死 `<base href="/game-across-time/">`，本機用網站根目錄預覽 `build/web` 時會抓錯檔。`export_presets.cfg` 的 `html/head_include` 維持空白。
+>
+> 下面的 `wrangler.toml`、`export-web.yml` 與 Dashboard 清單是選用／歷史說明。
 
-本文件是給擁有者之後自己接 Cloudflare 用的清單。這個 PR **不必**先做完 Dashboard。
+English: the live host is GitHub Pages. Cloudflare Workers/Pages reject a single file over 25 MiB, and this export exceeds that (`index.pck` ~80 MiB, `index.wasm` ~38 MiB). Relative asset URLs are enough under `/game-across-time/` because Pages redirects to a trailing slash. No `<base href>` and no re-export. The Cloudflare scaffold below is optional and historical.
 
-English: export to HTML5 first. Workers Static Assets or Pages only host the files in `build/web`.
+《時光裡的她》是 Godot 4.7.2 專案。瀏覽器版是已匯出的 HTML5 靜態檔（`build/web`）。Workers 與 Pages 不會執行 Godot。下面是先前為 Cloudflare 準備的清單；正式站不走這條路。
 
 ## 這個 repo 已備好的檔案
 
@@ -14,9 +24,10 @@ English: export to HTML5 first. Workers Static Assets or Pages only host the fil
 | `public/_headers` | `.wasm` → `application/wasm`，`.pck` → `application/octet-stream`，`.js` → `application/javascript`。匯出腳本會複製到 `build/web/_headers`。 |
 | `wrangler.toml` | Workers Static Assets，名稱 `game-across-time`，目錄 `build/web`。 |
 | `scripts/export_web.sh` | 用 Godot 4.7.2（`godot` 或 `GODOT_BIN`）無頭匯出。 |
-| `.github/workflows/export-web.yml` | 推上 `main`（或手動 `workflow_dispatch`）時下載 Godot 4.7.2 與 export templates、匯出、上傳 artifact `game-across-time-web`。 |
+| `.github/workflows/deploy-pages.yml` | **正式站。** 推上 `main`（或手動 `workflow_dispatch`）時，把已 commit 的 `build/web` 發到 GitHub Pages。 |
+| `.github/workflows/export-web.yml` | 仍會下載 Godot 4.7.2 與 export templates、匯出、上傳 artifact `game-across-time-web`。Cloudflare 發佈只在兩個 secret 都有值時才跑，而且 **不會** 更新 GitHub Pages。 |
 
-`build/` 裡的 `.wasm` / `.pck` **不要 commit**。GitHub Actions 或你本機的匯出腳本會產生它們。
+`build/web`（含 `index.wasm` 與 `index.pck`）**要 commit**。GitHub Pages 直接發佈這個目錄。改遊戲後用 `./scripts/export_web.sh` 重新匯出並提交 `build/web`，Pages 才會更新。
 
 ## 本機驗證
 
@@ -48,9 +59,9 @@ npx wrangler dev
 
 腳本在找不到二進位、版本不是 4.7.2、或缺少上述模板檔時會直接失敗並說明要裝哪一個。
 
-## 方案 A — Cloudflare Pages（連結 GitHub repo）
+## 方案 A — Cloudflare Pages（選用／歷史；目前無法發布這包檔案）
 
-適合「在 Dashboard 把 repo 接上 Pages」。Pages **只托管靜態檔**。
+Cloudflare Pages **只托管靜態檔**，但單一檔案上限 25 MiB，本遊戲的 `.pck` 與 `.wasm` 超過上限。這一節留作紀錄，不是現在的發佈方式。
 
 直接讓 Pages 的建置環境去跑 Godot **很重**：官方 export templates 壓縮檔約 1.2 GB，Pages 映像裡也沒有 Godot。不建議把 Build command 設成安裝 Godot。
 
@@ -59,11 +70,11 @@ npx wrangler dev
 1. 維持本 repo 的 GitHub Actions 負責匯出（artifact 名稱 `game-across-time-web`）。
 2. 之後要發佈時，用已設定的 secret 跑 `wrangler pages deploy`（workflow 裡有註解好的指令），**不要**同時又開一個會在 Cloudflare 端編譯 Godot 的 Build command。
 
-若仍要在 Dashboard 連結 repo，請看下方清單。輸出目錄不要指到 git 裡的 `build/web`——那個目錄的成品沒有被 commit，Pages 直接拉 repo 會是空的。
+若仍要在 Dashboard 連結 repo，請看下方清單。`build/web` 現在有 commit（給 GitHub Pages 用）。Cloudflare 仍然拒絕這兩個大檔，把輸出目錄指過去也不會發布成功。
 
-## 方案 B — Workers Static Assets + wrangler（本 repo 預設）
+## 方案 B — Workers Static Assets + wrangler（選用／歷史）
 
-`wrangler.toml` 已指向 `build/web`。這是建議路徑：Actions 匯出，之後 `npx wrangler deploy` 發佈同一個目錄。
+`wrangler.toml` 已指向 `build/web`。這不是正式站。Workers Static Assets 同樣有 25 MiB 單檔上限。正式發佈請用 GitHub Pages。若日後檔案變小、且已設定 token，才用 `npx wrangler deploy`。
 
 本機：
 
@@ -74,9 +85,9 @@ npx wrangler deploy
 
 `account_id` 可以留在 `wrangler.toml` 註解裡，改由環境變數 `CLOUDFLARE_ACCOUNT_ID` 提供。
 
-## Dashboard 清單（現在不用做完）
+## Dashboard 清單（選用；GitHub Pages 不需要這些 secret）
 
-之後要接上時再做。做完之前，推 `main` 只會產生 Actions artifact，**不會**因為沒有 Cloudflare secret 而失敗。
+發佈到 GitHub Pages **不必**做下面任何一步，也 **不必** 設定 `CLOUDFLARE_API_TOKEN` 或 `CLOUDFLARE_ACCOUNT_ID`。推 `main` 時，`deploy-pages.yml` 會更新正式站；`export-web.yml` 沒有 Cloudflare secret 也不會失敗。下面只在你之後仍想試 Cloudflare（而且單檔已小於 25 MiB）時才需要。
 
 1. 登入 [Cloudflare Dashboard](https://dash.cloudflare.com)。
 2. 建立 Workers 或 Pages 專案，名稱建議 `game-across-time`（與 `wrangler.toml` 的 `name` 相同）。
