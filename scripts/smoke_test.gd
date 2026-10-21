@@ -161,6 +161,8 @@ func _run() -> void:
 	var new_ids := [
 		"culture_reading", "clinic_helper", "shops_market",
 		"school_debate", "park_run", "talent_showcase",
+		"school_library_helper", "virtue_recycle", "school_garden",
+		"school_class_helper", "festival_helper", "family_bento",
 	]
 	var all_acts: Dictionary = Activities.all()
 	for nid in new_ids:
@@ -217,6 +219,97 @@ func _run() -> void:
 		act_ok = false
 	else:
 		print("[smoke] culture_reading unlocked after visit+year OK")
+
+	# Age 9 (year 4) cannot take paid part-time work; early helpers can.
+	gs.begin_new_game()
+	gs.mood = 80
+	gs.year = 4
+	gs.academia = 80
+	gs.morals = 80
+	gs.stamina = 80
+	gs.charm = 80
+	gs.cash = 8000
+	gs.flags["visited_school"] = 1
+	gs.flags["visited_shops"] = 1
+	gs.flags["visited_clinic"] = 1
+	var cafe_year := int(all_acts["work_cafe"].get("min_year", 0))
+	var store_year := int(all_acts["work_store"].get("min_year", 0))
+	var tutor_year := int(all_acts["work_tutor"].get("min_year", 0))
+	if cafe_year != 10 or store_year != 11 or tutor_year != 11:
+		printerr("[smoke] FAIL: paid work min_year expected cafe 10 / store 11 / tutor 11")
+		act_ok = false
+	if str(all_acts["clinic_helper"].get("category", "")) != "品格":
+		printerr("[smoke] FAIL: clinic_helper should stay 品格")
+		act_ok = false
+	for paid in ["work_cafe", "work_store", "work_tutor"]:
+		var av_paid: Dictionary = Activities.availability(paid, gs)
+		if bool(av_paid.get("ok", true)):
+			printerr("[smoke] FAIL: year 4 (age 9) should lock %s" % paid)
+			act_ok = false
+		else:
+			print("[smoke] year 4 locks %s: %s" % [paid, av_paid.get("reason", "")])
+	var kid_ids := [
+		"school_library_helper", "virtue_recycle", "school_garden",
+		"school_class_helper", "festival_helper", "family_bento", "shops_market",
+	]
+	for kid in kid_ids:
+		var kdef: Dictionary = all_acts[kid]
+		if str(kdef.get("category", "")) == "打工":
+			printerr("[smoke] FAIL: %s should not be category 打工" % kid)
+			act_ok = false
+		if int(kdef.get("cash", 0)) > 400 or int(kdef.get("cash", 0)) < 0:
+			printerr("[smoke] FAIL: %s cash %s outside 0–400" % [kid, str(kdef.get("cash", 0))])
+			act_ok = false
+		if Activities.intensity_of(kdef) > 1:
+			printerr("[smoke] FAIL: %s intensity should be 0–1" % kid)
+			act_ok = false
+		if str(kdef.get("name", "")) == "" or str(kdef.get("desc", "")) == "":
+			printerr("[smoke] FAIL: %s missing zh name/desc" % kid)
+			act_ok = false
+		var av_kid: Dictionary = Activities.availability(kid, gs)
+		if not bool(av_kid.get("ok", false)):
+			printerr("[smoke] FAIL: year 4 should allow %s (%s)" % [kid, av_kid.get("reason", "")])
+			act_ok = false
+		else:
+			print("[smoke] year 4 allows %s OK" % kid)
+	gs.year = 1
+	gs.flags.clear()
+	var av_recycle: Dictionary = Activities.availability("virtue_recycle", gs)
+	var av_bento: Dictionary = Activities.availability("family_bento", gs)
+	var av_garden: Dictionary = Activities.availability("school_garden", gs)
+	if not bool(av_recycle.get("ok", false)) or not bool(av_bento.get("ok", false)):
+		printerr("[smoke] FAIL: year 1 should allow recycle/bento without a visit")
+		act_ok = false
+	elif bool(av_garden.get("ok", true)):
+		printerr("[smoke] FAIL: year 1 school_garden should wait for a school visit")
+		act_ok = false
+	else:
+		print("[smoke] year 1 recycle/bento open, garden waits for school OK")
+	gs.flags["visited_school"] = 1
+	gs.flags["visited_shops"] = 1
+	gs.flags["visited_clinic"] = 1
+	gs.year = 10
+	var av_cafe: Dictionary = Activities.availability("work_cafe", gs)
+	var av_store10: Dictionary = Activities.availability("work_store", gs)
+	var av_tutor10: Dictionary = Activities.availability("work_tutor", gs)
+	if not bool(av_cafe.get("ok", false)):
+		printerr("[smoke] FAIL: year 10 should unlock work_cafe (%s)" % av_cafe.get("reason", ""))
+		act_ok = false
+	elif bool(av_store10.get("ok", true)) or bool(av_tutor10.get("ok", true)):
+		printerr("[smoke] FAIL: year 10 should still lock store/tutor")
+		act_ok = false
+	else:
+		print("[smoke] year 10 unlocks cafe, locks store/tutor OK")
+	gs.year = 11
+	var av_store: Dictionary = Activities.availability("work_store", gs)
+	var av_tutor: Dictionary = Activities.availability("work_tutor", gs)
+	if not bool(av_store.get("ok", false)) or not bool(av_tutor.get("ok", false)):
+		printerr("[smoke] FAIL: year 11 should unlock store (%s) and tutor (%s)" % [
+			av_store.get("reason", ""), av_tutor.get("reason", "")
+		])
+		act_ok = false
+	else:
+		print("[smoke] year 11 unlocks work_store and work_tutor OK")
 
 	# —— Phase 6: year-end scrapbook review ——
 	var yr_ok := true
