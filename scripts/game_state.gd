@@ -29,6 +29,11 @@ var last_season_event: Dictionary = {}
 var last_vignettes: Array = []
 ## Optional map beat rolled at season resolve (once per place per season)
 var last_roaming_event: Dictionary = {}
+## Living album: {id, year, season, title, thumb_path, body}
+var album: Array = []
+## When set, the album scene returns here and may show album_browse instead of album
+var album_return_scene: String = ""
+var album_browse: Array = []
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var flags: Dictionary = {}
@@ -69,6 +74,9 @@ func begin_new_game() -> void:
 	last_season_event = {}
 	last_vignettes = []
 	last_roaming_event = {}
+	album = []
+	album_return_scene = ""
+	album_browse = []
 	_event_rng.randomize()
 	flags.clear()
 	reset_npc_affinity()
@@ -256,6 +264,7 @@ func resolve_season() -> Dictionary:
 	totals["vignettes"] = _dict_array_dup(last_vignettes)
 	totals["affinity_note"] = TownNpcs.season_note(self)
 	last_deltas = totals
+	record_season_memories()
 	season_resolved.emit(totals)
 	return totals
 
@@ -459,6 +468,7 @@ func to_dict() -> Dictionary:
 		"last_year_review": last_year_review.duplicate(true) if typeof(last_year_review) == TYPE_DICTIONARY else {},
 		"pending_ending_after_review": pending_ending_after_review,
 		"npc_affinity": npc_affinity.duplicate(),
+		"album": _dict_array_dup(album),
 	}
 
 
@@ -514,7 +524,63 @@ func from_dict(d: Dictionary) -> void:
 	last_year_review = lyr.duplicate(true) if typeof(lyr) == TYPE_DICTIONARY else {}
 	pending_ending_after_review = bool(d.get("pending_ending_after_review", false))
 	_load_npc_affinity(d.get("npc_affinity", null))
+	album = _parse_dict_array(d.get("album", []))
+	album_browse = []
+	album_return_scene = ""
 	state_changed.emit()
+
+
+func append_album_entry(entry: Dictionary) -> void:
+	var eid := str(entry.get("id", ""))
+	if eid == "":
+		return
+	for existing in album:
+		if typeof(existing) == TYPE_DICTIONARY and str(existing.get("id", "")) == eid:
+			return
+	album.append({
+		"id": eid,
+		"year": int(entry.get("year", year)),
+		"season": int(entry.get("season", season)),
+		"title": str(entry.get("title", "")),
+		"thumb_path": str(entry.get("thumb_path", "")),
+		"body": str(entry.get("body", "")),
+	})
+
+
+func record_season_memories() -> void:
+	## Beach / mountain stills, plus notable activity vignettes from this season.
+	var ev := last_season_event
+	if str(ev.get("media_still", "")) != "":
+		append_album_entry({
+			"id": "evt_%s_y%d" % [str(ev.get("id", "event")), year],
+			"year": year,
+			"season": season,
+			"title": str(ev.get("title", "")),
+			"thumb_path": GameConfig.event_still_path(str(ev.get("media_still", ""))),
+			"body": str(ev.get("body", "")),
+		})
+	for item in last_vignettes:
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var v: Dictionary = item
+		if not bool(v.get("notable", false)):
+			continue
+		var thumb := ""
+		var still_id := str(v.get("still", ""))
+		if still_id != "":
+			thumb = GameConfig.event_still_path(still_id)
+		if thumb == "":
+			thumb = SeasonEvents.sticker_path(str(v.get("sticker", "")))
+		append_album_entry({
+			"id": "vig_%s_y%d_s%d_m%d" % [
+				str(v.get("activity_id", "act")), year, season, int(v.get("month_index", 0))
+			],
+			"year": year,
+			"season": season,
+			"title": str(v.get("title", "")),
+			"thumb_path": thumb,
+			"body": str(v.get("body", "")),
+		})
 
 
 func map_event_flag(place_id: String) -> String:

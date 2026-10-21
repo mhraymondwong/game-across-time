@@ -32,6 +32,7 @@ var _girl: TextureRect
 var _save_btn: Button
 var _save_toast: Label
 var _npc_btn: Button
+var _album_btn: Button
 var _affinity_lbl: Label
 var _npc_popup: PanelContainer
 var _npc_list: VBoxContainer
@@ -295,6 +296,15 @@ func _build_layout() -> void:
 	_npc_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_npc_btn.pressed.connect(_show_npc_panel)
 	btn_row.add_child(_npc_btn)
+
+	_album_btn = Button.new()
+	_album_btn.text = "相簿"
+	UiStyle.apply_soft_chip(_album_btn, Color("FFD0E4"))
+	_album_btn.add_theme_font_size_override("font_size", 14)
+	_album_btn.custom_minimum_size = Vector2(0, 36)
+	_album_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_album_btn.pressed.connect(_on_album_pressed)
+	btn_row.add_child(_album_btn)
 
 	_save_btn = Button.new()
 	_save_btn.text = "♡ 存檔"
@@ -618,6 +628,12 @@ func _on_place_schedule_activity() -> void:
 			break
 	_selected_month = clampi(target, 0, GameConfig.MONTHS_PER_SEASON - 1)
 	_show_activity_picker()
+
+
+func _on_album_pressed() -> void:
+	GameState.album_return_scene = ""
+	GameState.album_browse = []
+	get_tree().change_scene_to_file("res://scenes/album.tscn")
 
 
 func _on_save_pressed() -> void:
