@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#F5E6D3"/>
+  <circle cx="64" cy="52" r="28" fill="#E8B4B8"/>
+  <rect x="36" y="78" width="56" height="36" rx="12" fill="#A8C5D4"/>
+  <text x="64" y="118" text-anchor="middle" font-size="14" fill="#5C4A3A" font-family="sans-serif">她</text>
+</svg>
