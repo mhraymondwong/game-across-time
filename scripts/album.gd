@@ -74,7 +74,7 @@ func _ready() -> void:
 
 	if entries.is_empty():
 		var empty := Label.new()
-		empty.text = "相簿還是空白的。去過海灘、上過山，或度過值得記住的一個月，照片就會貼上來。"
+		empty.text = "相簿還是空白的。家人的合照、兩年一次的遠行，或值得記住的一個月，照片都會貼上來。"
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		UiStyle.apply_label(empty, 18)
 		list.add_child(empty)

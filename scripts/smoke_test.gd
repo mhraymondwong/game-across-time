@@ -573,6 +573,307 @@ func _run() -> void:
 	else:
 		print("[smoke] town_bond ending OK")
 
+	# —— Mom (family, occasional hub) + biennial travel ——
+	var phase10_ok := true
+	for rel in [
+		"res://assets/family/mom_portrait.jpg",
+		"res://assets/family/family_photo_child.jpg",
+		"res://assets/travel/travel_china_family.jpg",
+	]:
+		if not FileAccess.file_exists(ProjectSettings.globalize_path(rel)):
+			printerr("[smoke] FAIL missing art %s" % rel)
+			phase10_ok = false
+		else:
+			print("[smoke] art %s OK" % rel)
+	if Mom.APPEAR_CHANCE < 0.25 or Mom.APPEAR_CHANCE > 0.35:
+		printerr("[smoke] FAIL mom appear chance %s" % str(Mom.APPEAR_CHANCE))
+		phase10_ok = false
+	if TownNpcs.has_id("mom"):
+		printerr("[smoke] FAIL mom must not be a town NPC")
+		phase10_ok = false
+	else:
+		print("[smoke] mom is family, not TownNpcs OK")
+	if load("res://scripts/mom.gd") == null or load("res://scripts/travel.gd") == null:
+		printerr("[smoke] FAIL mom/travel script")
+		phase10_ok = false
+	if load("res://scripts/home_hub.gd") == null or load("res://scripts/travel_offer.gd") == null:
+		printerr("[smoke] FAIL hub/travel_offer script")
+		phase10_ok = false
+	if not ResourceLoader.exists("res://scenes/travel_offer.tscn"):
+		printerr("[smoke] FAIL travel_offer.tscn")
+		phase10_ok = false
+	var hub_src := FileAccess.get_file_as_string("res://scripts/home_hub.gd")
+	if not hub_src.contains("res://scenes/travel_offer.tscn") or not hub_src.contains("Mom.roll_presence"):
+		printerr("[smoke] FAIL hub not wired to mom/travel")
+		phase10_ok = false
+	var travel_src := FileAccess.get_file_as_string("res://scripts/travel.gd")
+	if not travel_src.contains("TODO"):
+		printerr("[smoke] FAIL travel placeholder art missing TODO")
+		phase10_ok = false
+	for y_on in [2, 4, 6, 8, 10, 12]:
+		if not Travel.is_travel_year(y_on):
+			printerr("[smoke] FAIL travel year %d" % y_on)
+			phase10_ok = false
+	for y_off in [1, 3, 5, 7, 9, 11]:
+		if Travel.is_travel_year(y_off):
+			printerr("[smoke] FAIL unexpected travel year %d" % y_off)
+			phase10_ok = false
+
+	gs.begin_new_game()
+	var seeded := false
+	for fam_entry in gs.album:
+		if str(fam_entry.get("id", "")) == "family_photo_child" and str(fam_entry.get("thumb_path", "")).ends_with("family_photo_child.jpg"):
+			seeded = true
+	if not seeded:
+		printerr("[smoke] FAIL family photo not seeded")
+		phase10_ok = false
+	else:
+		print("[smoke] family album seed OK")
+
+	var mom_rng := RandomNumberGenerator.new()
+	mom_rng.seed = 12345
+	var mom_hits := 0
+	for y_roll in range(1, 13):
+		for s_roll in range(4):
+			gs.year = y_roll
+			gs.season = s_roll
+			if Mom.roll_presence(gs, mom_rng):
+				mom_hits += 1
+	if mom_hits < 4 or mom_hits > 28:
+		printerr("[smoke] FAIL mom presence rate %d/48" % mom_hits)
+		phase10_ok = false
+	else:
+		print("[smoke] mom presence %d/48 OK" % mom_hits)
+	var seen_count := int(gs.flags.get("mom_seen_count", 0))
+	var rolled_again := Mom.roll_presence(gs, mom_rng)
+	if rolled_again != Mom.is_present(gs) or int(gs.flags.get("mom_seen_count", 0)) != seen_count:
+		printerr("[smoke] FAIL mom roll not sticky per season")
+		phase10_ok = false
+
+	gs.begin_new_game()
+	gs.flags["mom_rolled_1_0"] = true
+	gs.flags["mom_present_1_0"] = true
+	var line_a := Mom.advance_dialogue(gs)
+	var line_b := Mom.advance_dialogue(gs)
+	if line_a == "" or line_a == line_b or int(gs.flags.get("mom_dialogue_index", 0)) != 2:
+		printerr("[smoke] FAIL mom dialogue advance")
+		phase10_ok = false
+	if not gs.save_game(0):
+		printerr("[smoke] FAIL mom save")
+		phase10_ok = false
+	gs.begin_new_game()
+	if not gs.load_game(0) or int(gs.flags.get("mom_dialogue_index", -1)) != 2:
+		printerr("[smoke] FAIL mom dialogue index roundtrip")
+		phase10_ok = false
+	elif not bool(gs.flags.get("mom_present_1_0", false)):
+		printerr("[smoke] FAIL mom present flag roundtrip")
+		phase10_ok = false
+	else:
+		print("[smoke] mom dialogue/present save OK")
+	var help_spec: Dictionary = Mom.help_spec(gs)
+	var help_deltas: Dictionary = help_spec.get("deltas", {})
+	var cash0 := int(gs.cash)
+	var mood0 := int(gs.mood)
+	var stam0 := int(gs.stamina)
+	var mor0 := int(gs.morals)
+	var help: Dictionary = Mom.claim_help(gs)
+	if not bool(help.get("ok", false)):
+		printerr("[smoke] FAIL mom help %s" % str(help))
+		phase10_ok = false
+	elif int(gs.cash) != cash0 + int(help_deltas.get("cash", 0)):
+		printerr("[smoke] FAIL mom help cash")
+		phase10_ok = false
+	elif int(gs.mood) != clampi(mood0 + int(help_deltas.get("mood", 0)), 0, 100):
+		printerr("[smoke] FAIL mom help mood")
+		phase10_ok = false
+	elif int(gs.stamina) != clampi(stam0 + int(help_deltas.get("stamina", 0)), 0, 100):
+		printerr("[smoke] FAIL mom help stamina")
+		phase10_ok = false
+	elif int(gs.morals) != clampi(mor0 + int(help_deltas.get("morals", 0)), 0, 100):
+		printerr("[smoke] FAIL mom help morals")
+		phase10_ok = false
+	elif bool(Mom.claim_help(gs).get("ok", true)):
+		printerr("[smoke] FAIL mom help repeat")
+		phase10_ok = false
+	else:
+		print("[smoke] mom help once per season OK")
+	gs.flags["mom_present_1_0"] = false
+	gs.flags.erase("mom_helped_1_0")
+	if bool(Mom.claim_help(gs).get("ok", true)):
+		printerr("[smoke] FAIL mom help while absent")
+		phase10_ok = false
+	gs.delete_save(0)
+
+	gs.begin_new_game()
+	gs.year = 6
+	gs.cash = 999999
+	var ids6: Array = Travel.unlocked_ids(gs)
+	if ids6.size() != 1 or str(ids6[0]) != "china":
+		printerr("[smoke] FAIL elementary unlock %s" % str(ids6))
+		phase10_ok = false
+	elif Travel.lock_reason(Travel.get_dest("japan"), gs) == "":
+		printerr("[smoke] FAIL japan should lock in year 6")
+		phase10_ok = false
+	else:
+		print("[smoke] year 6 china only OK")
+	gs.year = 7
+	if Travel.lock_reason(Travel.get_dest("japan"), gs) != "":
+		printerr("[smoke] FAIL japan should unlock at year 7")
+		phase10_ok = false
+	if "asia" in Travel.unlocked_ids(gs):
+		printerr("[smoke] FAIL asia unlocked too early")
+		phase10_ok = false
+	gs.year = 8
+	var ids8: Array = Travel.unlocked_ids(gs)
+	if ids8.size() != 2 or str(ids8[1]) != "japan":
+		printerr("[smoke] FAIL year 8 unlock %s" % str(ids8))
+		phase10_ok = false
+	gs.year = 10
+	if Travel.unlocked_ids(gs).size() != 5:
+		printerr("[smoke] FAIL year 10 should unlock 5 destinations")
+		phase10_ok = false
+	elif Travel.lock_reason(Travel.get_dest("europe"), gs) != "" or Travel.lock_reason(Travel.get_dest("australia"), gs) != "":
+		printerr("[smoke] FAIL europe/australia lock at year 10")
+		phase10_ok = false
+	else:
+		print("[smoke] destination arc OK")
+	if not str(Travel.get_dest("china").get("thumb", "")).ends_with("travel_china_family.jpg"):
+		printerr("[smoke] FAIL china thumb")
+		phase10_ok = false
+	if not str(Travel.get_dest("japan").get("thumb", "")).ends_with("family_photo_child.jpg"):
+		printerr("[smoke] FAIL japan temp thumb")
+		phase10_ok = false
+
+	gs.begin_new_game()
+	gs.year = 3
+	gs.season = 1
+	if Travel.offer_due(gs) or bool(Travel.depart(gs, "china").get("ok", true)):
+		printerr("[smoke] FAIL odd year should not travel")
+		phase10_ok = false
+	gs.year = 2
+	gs.season = 0
+	if Travel.offer_due(gs):
+		printerr("[smoke] FAIL spring should not offer travel")
+		phase10_ok = false
+	gs.season = 1
+	if not Travel.offer_due(gs):
+		printerr("[smoke] FAIL summer offer")
+		phase10_ok = false
+	var trip_cost := int(Travel.get_dest("china").get("cost", 0))
+	gs.cash = trip_cost - 1
+	gs.season_schedule[0] = "rest_sleep"
+	gs.season_schedule[1] = "rest_park"
+	gs.season_schedule[2] = "virtue_chores"
+	var poor: Dictionary = Travel.depart(gs, "china")
+	if bool(poor.get("ok", true)) or not str(poor.get("reason", "")).contains("家計不足") or int(gs.cash) != trip_cost - 1:
+		printerr("[smoke] FAIL cash lock %s" % str(poor))
+		phase10_ok = false
+	elif not Travel.offer_due(gs):
+		printerr("[smoke] FAIL failed depart closed the window")
+		phase10_ok = false
+	else:
+		print("[smoke] travel cash lock OK")
+	gs.cash = trip_cost + 50
+	var mood_before := int(gs.mood)
+	var went: Dictionary = Travel.depart(gs, "china")
+	var mood_delta := int(Travel.get_dest("china").get("deltas", {}).get("mood", 0))
+	if not bool(went.get("ok", false)):
+		printerr("[smoke] FAIL depart %s" % str(went))
+		phase10_ok = false
+	elif int(gs.cash) != 50:
+		printerr("[smoke] FAIL depart cash %d" % int(gs.cash))
+		phase10_ok = false
+	elif int(gs.mood) != clampi(mood_before + mood_delta, 0, 100):
+		printerr("[smoke] FAIL depart mood")
+		phase10_ok = false
+	elif str(gs.flags.get("travel_window_2", "")) != "summer" or str(gs.flags.get("travel_dest_2", "")) != "china":
+		printerr("[smoke] FAIL travel flags")
+		phase10_ok = false
+	elif str(gs.season_schedule[0]) != "rest_sleep" or str(gs.season_schedule[2]) != "virtue_chores":
+		printerr("[smoke] FAIL travel changed the monthly schedule")
+		phase10_ok = false
+	elif Travel.offer_due(gs) or bool(Travel.depart(gs, "china").get("ok", true)):
+		printerr("[smoke] FAIL travel window repeated")
+		phase10_ok = false
+	else:
+		var saw_trip := false
+		for trip_entry in gs.album:
+			if str(trip_entry.get("id", "")) == "travel_china_y2":
+				saw_trip = str(trip_entry.get("thumb_path", "")).ends_with("travel_china_family.jpg")
+				if not str(trip_entry.get("body", "")).contains("媽媽"):
+					saw_trip = false
+		if not saw_trip:
+			printerr("[smoke] FAIL china album entry")
+			phase10_ok = false
+		else:
+			print("[smoke] china depart album/stats/schedule OK")
+
+	gs.begin_new_game()
+	gs.year = 4
+	gs.season = 1
+	if not Travel.skip_window(gs) or Travel.offer_due(gs):
+		printerr("[smoke] FAIL skip")
+		phase10_ok = false
+	gs.season = 3
+	if Travel.offer_due(gs):
+		printerr("[smoke] FAIL skip should close winter too")
+		phase10_ok = false
+	else:
+		print("[smoke] travel skip OK")
+
+	gs.begin_new_game()
+	gs.year = 8
+	gs.season = 1
+	gs.cash = 99999
+	if not Travel.defer_to_winter(gs) or Travel.offer_due(gs) or Travel.hub_hint(gs) == "":
+		printerr("[smoke] FAIL defer")
+		phase10_ok = false
+	gs.season = 2
+	if Travel.offer_due(gs):
+		printerr("[smoke] FAIL autumn should not depart")
+		phase10_ok = false
+	gs.season = 3
+	if not Travel.offer_due(gs):
+		printerr("[smoke] FAIL winter offer after defer")
+		phase10_ok = false
+	var jp: Dictionary = Travel.depart(gs, "japan")
+	if not bool(jp.get("ok", false)) or str(gs.flags.get("travel_window_8", "")) != "winter":
+		printerr("[smoke] FAIL japan winter depart %s" % str(jp))
+		phase10_ok = false
+	elif not bool(jp.get("with_mom", false)):
+		printerr("[smoke] FAIL japan trip should include mom")
+		phase10_ok = false
+	else:
+		print("[smoke] defer + japan winter OK")
+
+	gs.begin_new_game()
+	gs.year = 12
+	gs.season = 3
+	if not Travel.offer_due(gs):
+		printerr("[smoke] FAIL unresolved winter should still offer")
+		phase10_ok = false
+
+	gs.begin_new_game()
+	gs.year = 2
+	gs.season = 1
+	gs.cash = 8000
+	var offer_packed = load("res://scenes/travel_offer.tscn")
+	if offer_packed == null:
+		printerr("[smoke] FAIL travel_offer scene load")
+		phase10_ok = false
+	else:
+		var offer_node: Node = offer_packed.instantiate()
+		root.add_child(offer_node)
+		if offer_node.get_child_count() < 1:
+			printerr("[smoke] FAIL travel_offer built no UI")
+			phase10_ok = false
+		else:
+			print("[smoke] travel_offer scene builds OK")
+		offer_node.free()
+
+	if phase10_ok:
+		print("[smoke] mom + travel OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -609,7 +910,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false

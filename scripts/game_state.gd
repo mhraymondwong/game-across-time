@@ -30,6 +30,7 @@ var last_vignettes: Array = []
 ## Optional map beat rolled at season resolve (once per place per season)
 var last_roaming_event: Dictionary = {}
 ## Living album: {id, year, season, title, thumb_path, body}
+## New games seed a family photo via Mom.seed_family_album. Trips append more.
 var album: Array = []
 ## When set, the album scene returns here and may show album_browse instead of album
 var album_return_scene: String = ""
@@ -93,6 +94,7 @@ func begin_new_game() -> void:
 	last_year_review = {}
 	pending_ending_after_review = false
 	snapshot_year_start()
+	Mom.seed_family_album(self)
 	state_changed.emit()
 
 

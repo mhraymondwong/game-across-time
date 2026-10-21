@@ -41,6 +41,14 @@ var _save_list: VBoxContainer
 var _pending_save_slot: int = -1
 var _tutorial_layer: CanvasLayer
 var _map_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _mom_card: PanelContainer
+var _mom_tex: TextureRect
+var _mom_popup: PanelContainer
+var _mom_line: Label
+var _mom_help_lbl: Label
+var _mom_help_btn: Button
+var _mom_portrait: TextureRect
+var _travel_hint: Label
 
 ## Approximate pin positions on 1280x720 map (fractions of viewport)
 const PLACES := [
@@ -78,6 +86,10 @@ const PLACES := [
 
 
 func _ready() -> void:
+	# Even years: the trip page comes before this season's three months.
+	if Travel.offer_due(GameState):
+		call_deferred("_open_travel_offer")
+		return
 	_map_rng.randomize()
 	_build_layout()
 	_refresh()
@@ -89,6 +101,7 @@ func _ready() -> void:
 func _on_resized() -> void:
 	_reposition_pins()
 	_reposition_girl()
+	_position_mom_card()
 
 
 func _build_layout() -> void:
@@ -283,6 +296,12 @@ func _build_layout() -> void:
 	UiStyle.apply_label(_cash_lbl, 16)
 	stats_col.add_child(_cash_lbl)
 
+	_travel_hint = Label.new()
+	_travel_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(_travel_hint, 13, true)
+	_travel_hint.visible = false
+	stats_col.add_child(_travel_hint)
+
 	_affinity_lbl = Label.new()
 	_affinity_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(_affinity_lbl, 13, true)
@@ -361,10 +380,15 @@ func _build_layout() -> void:
 	_npc_popup.visible = false
 	_popup_layer.add_child(_npc_popup)
 
+	_mom_popup = _make_mom_popup()
+	_mom_popup.visible = false
+	_popup_layer.add_child(_mom_popup)
+
 	_save_popup = _make_save_popup()
 	_save_popup.visible = false
 	_popup_layer.add_child(_save_popup)
 
+	_build_mom_card()
 	_maybe_tutorial()
 
 
@@ -791,6 +815,7 @@ func _maybe_tutorial() -> void:
 	UiStyle.apply_button(ok, true)
 	ok.pressed.connect(_dismiss_tutorial)
 	v.add_child(ok)
+	_position_mom_card()
 
 
 func _dismiss_tutorial() -> void:
@@ -798,6 +823,7 @@ func _dismiss_tutorial() -> void:
 	if _tutorial_layer:
 		_tutorial_layer.queue_free()
 		_tutorial_layer = null
+	_position_mom_card()
 
 
 func _on_month_slot(i: int) -> void:
@@ -871,6 +897,8 @@ func _hide_popups() -> void:
 	_activity_popup.visible = false
 	if _npc_popup:
 		_npc_popup.visible = false
+	if _mom_popup:
+		_mom_popup.visible = false
 	if _save_popup:
 		_save_popup.visible = false
 	var dim := _popup_layer.get_node_or_null("Dim")
@@ -902,7 +930,7 @@ func _make_npc_popup() -> PanelContainer:
 	v.add_child(title)
 
 	var sub := Label.new()
-	sub.text = "好感會跟著活動、地圖小事與季節，慢慢暖起來。"
+	sub.text = "好感會跟著活動、地圖小事與季節，慢慢暖起來。媽媽是家人，不在這裡計分。"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(sub, 13, true)
@@ -933,6 +961,7 @@ func _rebuild_npc_list() -> void:
 		return
 	for c in _npc_list.get_children():
 		c.queue_free()
+	_npc_list.add_child(_mom_family_card())
 	for d in TownNpcs.defs():
 		var id := str(d.get("id", ""))
 		var value := TownNpcs.value_of(GameState, id)
@@ -1020,3 +1049,263 @@ func _refresh() -> void:
 		_confirm_btn.text = "排滿三個月後可結算"
 		UiStyle.apply_button(_confirm_btn, false)
 	_confirm_btn.disabled = false
+	if _travel_hint:
+		_travel_hint.text = Travel.hub_hint(GameState)
+		_travel_hint.visible = _travel_hint.text != ""
+	_refresh_mom()
+
+
+func _open_travel_offer() -> void:
+	get_tree().change_scene_to_file("res://scenes/travel_offer.tscn")
+
+
+func _build_mom_card() -> void:
+	_mom_card = PanelContainer.new()
+	_mom_card.name = "MomCard"
+	_mom_card.visible = false
+	_mom_card.z_index = 9
+	_mom_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_mom_card.tooltip_text = "點一下，跟媽媽說說話"
+	var style := UiStyle.panel_style(Color("FFFAFC"), Color("F5B8C8"), 16)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 8
+	style.content_margin_bottom = 10
+	style.set_border_width_all(2)
+	style.border_width_bottom = 16
+	_mom_card.add_theme_stylebox_override("panel", style)
+	add_child(_mom_card)
+
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 4)
+	_mom_card.add_child(col)
+
+	_mom_tex = TextureRect.new()
+	_mom_tex.custom_minimum_size = Vector2(132, 164)
+	_mom_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_mom_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_mom_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_mom_tex)
+
+	var name_lbl := Label.new()
+	name_lbl.text = Mom.NAME
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiStyle.apply_label(name_lbl, 14)
+	col.add_child(name_lbl)
+
+	var hit := Button.new()
+	hit.flat = true
+	hit.focus_mode = Control.FOCUS_NONE
+	hit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	hit.add_theme_stylebox_override("normal", empty)
+	hit.add_theme_stylebox_override("hover", empty)
+	hit.add_theme_stylebox_override("pressed", empty)
+	hit.add_theme_stylebox_override("focus", empty)
+	hit.pressed.connect(_on_mom_pressed)
+	_mom_card.add_child(hit)
+	_position_mom_card()
+
+
+func _position_mom_card() -> void:
+	if _mom_card == null:
+		return
+	var sz := size
+	if sz.y < 10:
+		sz = Vector2(GameConfig.VIEWPORT_W, GameConfig.VIEWPORT_H)
+	var card := Vector2(156, 228)
+	var drawer_top := sz.y - (DRAWER_H if _drawer_expanded else DRAWER_COLLAPSED)
+	# Year-1 tutorial card sits at the top-left; keep the portrait beside it.
+	var x := 488.0 if _tutorial_open() else 16.0
+	var y := 66.0
+	if y + card.y > drawer_top - 8.0:
+		y = maxf(66.0, drawer_top - card.y - 8.0)
+	_mom_card.position = Vector2(x, y)
+	_mom_card.size = card
+
+
+func _tutorial_open() -> bool:
+	return _tutorial_layer != null and is_instance_valid(_tutorial_layer)
+
+
+func _refresh_mom() -> void:
+	if _mom_card == null:
+		return
+	Mom.roll_presence(GameState, _map_rng)
+	var present := Mom.is_present(GameState)
+	_mom_card.visible = present
+	if not present:
+		return
+	if _mom_tex != null and _mom_tex.texture == null:
+		_mom_tex.texture = _load_tex(Mom.PORTRAIT_PATH)
+
+
+func _on_mom_pressed() -> void:
+	if not Mom.is_present(GameState):
+		return
+	_hide_popups()
+	_popup_layer.get_node("Dim").visible = true
+	if _mom_portrait != null and _mom_portrait.texture == null:
+		_mom_portrait.texture = _load_tex(Mom.PORTRAIT_PATH)
+	_mom_line.text = Mom.advance_dialogue(GameState)
+	_refresh_mom_help_label()
+	_mom_popup.visible = true
+
+
+func _refresh_mom_help_label() -> void:
+	if _mom_help_btn == null:
+		return
+	var available := Mom.help_available(GameState)
+	_mom_help_btn.visible = available
+	_mom_help_btn.disabled = not available
+	if Mom.helped_this_season(GameState):
+		if _mom_help_lbl.text == "":
+			_mom_help_lbl.text = "這季她已經幫過一點小忙了。"
+	elif _mom_help_lbl != null and not available:
+		_mom_help_lbl.text = ""
+
+
+func _on_mom_next_line() -> void:
+	_mom_line.text = Mom.advance_dialogue(GameState)
+
+
+func _on_mom_help() -> void:
+	var res: Dictionary = Mom.claim_help(GameState)
+	if not bool(res.get("ok", false)):
+		_mom_help_lbl.text = str(res.get("reason", ""))
+		_refresh_mom_help_label()
+		return
+	var line := "%s\n%s" % [str(res.get("title", "")), str(res.get("body", ""))]
+	var delta_line := Mom.format_deltas(res.get("deltas", {}))
+	if delta_line != "":
+		line += "\n" + delta_line
+	_mom_help_lbl.text = line
+	_refresh_mom_help_label()
+
+
+func _make_mom_popup() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(560, 420)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -280
+	panel.offset_right = 280
+	panel.offset_top = -220
+	panel.offset_bottom = 220
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	panel.add_child(margin)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	margin.add_child(row)
+
+	_mom_portrait = TextureRect.new()
+	_mom_portrait.custom_minimum_size = Vector2(168, 220)
+	_mom_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_mom_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_mom_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_mom_portrait)
+
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 8)
+	row.add_child(col)
+
+	var title := Label.new()
+	title.text = Mom.NAME
+	UiStyle.apply_label(title, 24)
+	col.add_child(title)
+
+	_mom_line = Label.new()
+	_mom_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mom_line.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	UiStyle.apply_label(_mom_line, 16)
+	col.add_child(_mom_line)
+
+	_mom_help_lbl = Label.new()
+	_mom_help_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(_mom_help_lbl, 14, true)
+	col.add_child(_mom_help_lbl)
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	col.add_child(actions)
+
+	var again := Button.new()
+	again.text = "再聽一句"
+	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UiStyle.apply_button(again, false)
+	again.pressed.connect(_on_mom_next_line)
+	actions.add_child(again)
+
+	_mom_help_btn = Button.new()
+	_mom_help_btn.text = "媽媽的小幫忙"
+	_mom_help_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UiStyle.apply_button(_mom_help_btn, true)
+	_mom_help_btn.pressed.connect(_on_mom_help)
+	actions.add_child(_mom_help_btn)
+
+	var close := Button.new()
+	close.text = "好的 ♡"
+	UiStyle.apply_button(close, false)
+	close.pressed.connect(_hide_popups)
+	col.add_child(close)
+	return panel
+
+
+func _mom_family_card() -> PanelContainer:
+	var card := PanelContainer.new()
+	var style := UiStyle.panel_style(Color("FFF0F6"), Color("F5C0D0"), 14)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	card.add_theme_stylebox_override("panel", style)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	card.add_child(col)
+
+	var head := Label.new()
+	head.text = "%s　·　家人　·　家" % Mom.NAME
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(head, 16)
+	col.add_child(head)
+
+	var bio := Label.new()
+	bio.text = Mom.FAMILY_BIO
+	bio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(bio, 13, true)
+	col.add_child(bio)
+
+	var hearts := Label.new()
+	hearts.text = "一直是暖的　·　不計分"
+	UiStyle.apply_label(hearts, 15)
+	col.add_child(hearts)
+	return card
+
+
+func _load_tex(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res is Texture2D:
+			return res
+	var abs := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(abs):
+		var img := Image.load_from_file(abs)
+		if img:
+			return ImageTexture.create_from_image(img)
+	return null
