@@ -17,12 +17,14 @@
 *.bak
 shots/playtest/
 
-# HTML5 export (wasm/pck/js). scripts/export_web.sh and CI recreate build/web.
-# Keep the placeholder so the output path exists in git.
+# Published Godot 4.7.2 HTML5 build for Cloudflare Workers Static Assets
+# (empty Build command + npx wrangler deploy). Recreate with scripts/export_web.sh.
 /build/*
 !/build/web/
-/build/web/*
-!/build/web/.gitkeep
+!/build/web/**
+
+# Root-level *.pck still ignored above; keep the web pack tracked.
+!/build/web/*.pck
 
 # Local Cloudflare / npm caches
 .wrangler/

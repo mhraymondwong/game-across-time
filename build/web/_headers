@@ -1,0 +1,30 @@
+# Copied to build/web/_headers by scripts/export_web.sh.
+# Cloudflare Workers Static Assets and Pages both read _headers from the
+# published directory. Godot's web export does not hash filenames, so avoid
+# long-lived immutable caches on index.wasm / index.pck / index.js.
+
+/index.html
+  Cache-Control: no-cache
+
+/*.wasm
+  Content-Type: application/wasm
+  Cache-Control: no-cache
+
+/*.pck
+  Content-Type: application/octet-stream
+  Cache-Control: no-cache
+
+/*.js
+  Content-Type: application/javascript; charset=utf-8
+  Cache-Control: no-cache
+
+# Optional COOP/COEP — required only if you enable variant/thread_support
+# in export_presets.cfg (SharedArrayBuffer / multi-threaded web export).
+# Threads are OFF in the committed preset, so leave these commented.
+# Uncomment the block below, re-export, and redeploy after turning threads on.
+# A secure HTTPS context is still required. These headers also cross-origin
+# isolate the page (third-party embeds and ads will not load).
+#
+# /*
+#   Cross-Origin-Opener-Policy: same-origin
+#   Cross-Origin-Embedder-Policy: require-corp
