@@ -2,6 +2,20 @@ class_name UiStyle
 extends RefCounted
 ## Soft pink scrapbook StyleBoxes — lace/hearts diary polish, not grey system chrome
 
+static var _ui_font: Font
+
+
+static func ui_font() -> Font:
+	if _ui_font == null:
+		_ui_font = load("res://assets/fonts/NotoSansCJKtc-Regular.otf") as Font
+	return _ui_font
+
+
+static func _apply_font(ctrl: Control) -> void:
+	var f := ui_font()
+	if f:
+		ctrl.add_theme_font_override("font", f)
+
 
 static func panel_style(bg: Color = GameConfig.COL_PANEL, border: Color = GameConfig.COL_PANEL_BORDER, radius: int = 16) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -42,6 +56,7 @@ static func apply_button(btn: Button, primary: bool = false) -> void:
 	btn.add_theme_color_override("font_pressed_color", Color.WHITE if primary else GameConfig.COL_TEXT)
 	btn.add_theme_color_override("font_disabled_color", Color("B898A0"))
 	btn.add_theme_font_size_override("font_size", 18)
+	_apply_font(btn)
 	btn.custom_minimum_size = Vector2(0, 44)
 
 
@@ -56,6 +71,7 @@ static func apply_soft_chip(btn: Button, fill: Color = GameConfig.COL_CHIP, text
 	btn.add_theme_color_override("font_hover_color", text_col)
 	btn.add_theme_color_override("font_pressed_color", text_col)
 	btn.add_theme_font_size_override("font_size", 15)
+	_apply_font(btn)
 
 
 static func apply_sticker_chip(btn: Button, selected: bool = false, filled: bool = false) -> void:
@@ -83,6 +99,7 @@ static func apply_sticker_chip(btn: Button, selected: bool = false, filled: bool
 static func apply_label(lbl: Label, size: int = 18, muted: bool = false) -> void:
 	lbl.add_theme_color_override("font_color", GameConfig.COL_TEXT_MUTED if muted else GameConfig.COL_TEXT)
 	lbl.add_theme_font_size_override("font_size", size)
+	_apply_font(lbl)
 
 
 static func make_bg(parent: Control, color: Color = GameConfig.COL_BG) -> ColorRect:
