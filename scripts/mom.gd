@@ -13,12 +13,12 @@ const APPEAR_CHANCE := 0.30
 const FAMILY_BIO := "她是這個家的人。會煮飯、會補外套，也會在你排太滿的時候，輕聲說慢一點。"
 
 const LINES: PackedStringArray = [
-	"回來啦。飯在鍋裡，她今天在學校畫了一朵很大的花。",
-	"別急著把行程排滿。她想跟你走一段路，去巷口就好。",
-	"外套我補好了。天涼的時候，記得讓她穿上。",
+	"回來啦。飯在鍋裡，%s今天在學校畫了一朵很大的花。",
+	"別急著把行程排滿。%s想跟你走一段路，去巷口就好。",
+	"外套我補好了。天涼的時候，記得讓%s穿上。",
 	"今晚想吃湯麵嗎？簡單的也好，三個人坐在一起就很夠。",
-	"她跟我說，爸爸笑的時候，家裡就亮一點。",
-	"功課我看過了，沒有催她。你陪她讀十分鐘就好。",
+	"%s跟我說，爸爸笑的時候，家裡就亮一點。",
+	"功課我看過了，沒有催。你陪%s讀十分鐘就好。",
 	"窗邊的光很好。要不要留一張？就我們三個。",
 	"我偶爾出門，也偶爾回來。你不用擔心家會空著。",
 ]
@@ -26,7 +26,7 @@ const LINES: PackedStringArray = [
 const HELPS: Array = [
 	{
 		"title": "熱茶",
-		"body": "媽媽熱了一壺茶。她喝完，肩膀鬆了一點。",
+		"body": "媽媽熱了一壺茶。%s喝完，肩膀鬆了一點。",
 		"deltas": {"mood": 5},
 	},
 	{
@@ -36,12 +36,12 @@ const HELPS: Array = [
 	},
 	{
 		"title": "陽台伸展",
-		"body": "媽媽帶她在陽台伸展。太陽慢慢爬上欄杆，體力也跟著醒了。",
+		"body": "媽媽帶%s在陽台伸展。太陽慢慢爬上欄杆，體力也跟著醒了。",
 		"deltas": {"stamina": 3, "morals": 1},
 	},
 	{
 		"title": "慢一點的安排",
-		"body": "媽媽輕聲說：這季不妨排一次「公園散步」，或「在家好好休息」。她需要慢的日子。",
+		"body": "媽媽輕聲說：這季不妨排一次「公園散步」，或「在家好好休息」。%s需要慢的日子。",
 		"deltas": {"mood": 2},
 	},
 ]
@@ -76,7 +76,7 @@ static func peek_line(state) -> String:
 	if LINES.is_empty():
 		return ""
 	var i := int(state.flags.get("mom_dialogue_index", 0))
-	return LINES[posmod(i, LINES.size())]
+	return _named(state, LINES[posmod(i, LINES.size())])
 
 
 ## Shows the current line and remembers the next index in flags (saved with the slot).
@@ -114,7 +114,7 @@ static func claim_help(state) -> Dictionary:
 	return {
 		"ok": true,
 		"title": str(spec.get("title", "小幫忙")),
-		"body": str(spec.get("body", "")),
+		"body": _named(state, str(spec.get("body", ""))),
 		"deltas": deltas,
 	}
 
@@ -145,5 +145,13 @@ static func seed_family_album(state) -> void:
 		"season": 0,
 		"title": "門前的一家三口",
 		"thumb_path": FAMILY_PHOTO_PATH,
-		"body": "爸爸、媽媽，和還小的她，站在花圃與石板路前。風很輕，三個人都在笑。這張照片從一開始就貼在相簿裡。",
+		"body": _named(state, "爸爸、媽媽，和還小的%s，站在花圃與石板路前。風很輕，三個人都在笑。這張照片從一開始就貼在相簿裡。"),
 	})
+
+
+static func _named(state, text: String) -> String:
+	if not text.contains("%s"):
+		return text
+	if state != null and state.has_method("format_daughter"):
+		return str(state.format_daughter(text))
+	return text % "小悠"

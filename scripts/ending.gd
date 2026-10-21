@@ -201,5 +201,5 @@ func _load_tex(path: String) -> Texture2D:
 
 
 func _on_again() -> void:
-	GameState.begin_new_game()
-	get_tree().change_scene_to_file("res://scenes/home_hub.tscn")
+	GameState.wants_new_game_name = true
+	get_tree().change_scene_to_file("res://scenes/title.tscn")

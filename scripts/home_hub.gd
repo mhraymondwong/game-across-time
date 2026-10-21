@@ -49,6 +49,9 @@ var _mom_help_lbl: Label
 var _mom_help_btn: Button
 var _mom_portrait: TextureRect
 var _travel_hint: Label
+var _confide_popup: PanelContainer
+var _confide_box: VBoxContainer
+var _confide_offer: Dictionary = {}
 
 ## Approximate pin positions on 1280x720 map (fractions of viewport)
 const PLACES := [
@@ -93,6 +96,7 @@ func _ready() -> void:
 	_map_rng.randomize()
 	_build_layout()
 	_refresh()
+	_maybe_confide()
 	GameState.state_changed.connect(_refresh)
 	resized.connect(_on_resized)
 	call_deferred("_on_resized")
@@ -383,6 +387,10 @@ func _build_layout() -> void:
 	_mom_popup = _make_mom_popup()
 	_mom_popup.visible = false
 	_popup_layer.add_child(_mom_popup)
+
+	_confide_popup = _make_confide_popup()
+	_confide_popup.visible = false
+	_popup_layer.add_child(_confide_popup)
 
 	_save_popup = _make_save_popup()
 	_save_popup.visible = false
@@ -802,7 +810,7 @@ func _maybe_tutorial() -> void:
 	for line in [
 		"地圖上的圖釘可以走訪住家、學校、公園。每個地方，一季只會遇見一件小事。",
 		"在下方日記替三個月各選一項活動。",
-		"排滿之後，按「確認本季排程」，就會結算，並讀到她們的小故事。",
+		"排滿之後，按「確認本季排程」，就會結算，並讀到%s的小故事。" % GameState.daughter_display_name(),
 	]:
 		var lbl := Label.new()
 		lbl.text = line
@@ -824,6 +832,7 @@ func _dismiss_tutorial() -> void:
 		_tutorial_layer.queue_free()
 		_tutorial_layer = null
 	_position_mom_card()
+	_maybe_confide()
 
 
 func _on_month_slot(i: int) -> void:
@@ -846,7 +855,7 @@ func _rebuild_activity_list() -> void:
 	# Soft mood tip when heavy activities are gated
 	if int(GameState.mood) < 35:
 		var tip := Label.new()
-		tip.text = "女兒心情偏低，激烈活動暫時鎖上；安排休息或休閒會比較好。"
+		tip.text = "%s心情偏低，激烈活動暫時鎖上；安排休息或休閒會比較好。" % GameState.daughter_display_name()
 		tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		UiStyle.apply_label(tip, 13, false)
 		tip.add_theme_color_override("font_color", Color("C45A7A"))
@@ -893,6 +902,8 @@ func _pick_activity(id: String) -> void:
 
 
 func _hide_popups() -> void:
+	if _confide_popup != null and _confide_popup.visible:
+		return
 	_popup_panel.visible = false
 	_activity_popup.visible = false
 	if _npc_popup:
@@ -999,6 +1010,8 @@ func _rebuild_npc_list() -> void:
 
 func _on_dim_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _confide_popup != null and _confide_popup.visible:
+			return
 		_hide_popups()
 
 
@@ -1294,6 +1307,119 @@ func _mom_family_card() -> PanelContainer:
 	UiStyle.apply_label(hearts, 15)
 	col.add_child(hearts)
 	return card
+
+
+func _maybe_confide() -> void:
+	if _tutorial_open():
+		return
+	if _confide_popup == null or _confide_popup.visible:
+		return
+	var offer: Dictionary = Confide.offer_for(GameState, _map_rng)
+	if offer.is_empty():
+		return
+	_open_confide(offer)
+
+
+func _open_confide(offer: Dictionary) -> void:
+	_confide_offer = offer
+	_hide_popups()
+	var dim := _popup_layer.get_node_or_null("Dim")
+	if dim:
+		dim.visible = true
+	_show_confide_offer()
+	_confide_popup.visible = true
+
+
+func _clear_confide_box() -> void:
+	if _confide_box == null:
+		return
+	for node in _confide_box.get_children():
+		_confide_box.remove_child(node)
+		node.free()
+
+
+func _confide_label(text: String, size: int, muted: bool, min_h: int, center: bool) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if center else HORIZONTAL_ALIGNMENT_LEFT
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.custom_minimum_size = Vector2(440, min_h)
+	UiStyle.apply_label(lbl, size, muted)
+	return lbl
+
+
+func _show_confide_offer() -> void:
+	_clear_confide_box()
+	_confide_box.add_child(_confide_label(str(_confide_offer.get("kicker", "傾訴心事")), 14, true, 24, true))
+	_confide_box.add_child(_confide_label("%s想說說話" % GameState.daughter_display_name(), 22, false, 36, true))
+	_confide_box.add_child(_confide_label(str(_confide_offer.get("body", "")), 16, false, 72, false))
+
+	var opts: Array = _confide_offer.get("options", [])
+	for i in range(opts.size()):
+		var opt: Dictionary = opts[i]
+		var btn := Button.new()
+		btn.text = str(opt.get("label", ""))
+		btn.custom_minimum_size = Vector2(440, 42)
+		UiStyle.apply_button(btn, false)
+		var choice_i := i
+		btn.pressed.connect(func() -> void: _on_confide_choice(choice_i))
+		_confide_box.add_child(btn)
+
+
+func _on_confide_choice(index: int) -> void:
+	var picked := str(_confide_offer.get("id", ""))
+	var res: Dictionary = Confide.apply_choice(GameState, picked, index)
+	call_deferred("_show_confide_result", res)
+
+
+func _show_confide_result(res: Dictionary) -> void:
+	_clear_confide_box()
+	_confide_box.add_child(_confide_label(str(res.get("reply", "")), 16, false, 72, false))
+	var delta_line := Mom.format_deltas(res.get("deltas", {}))
+	if delta_line != "":
+		_confide_box.add_child(_confide_label(delta_line, 14, true, 28, false))
+	if int(res.get("warmth", 0)) > 0:
+		_confide_box.add_child(_confide_label("家裡更暖了一點。", 14, true, 28, false))
+	var ok_btn := Button.new()
+	ok_btn.text = "好的"
+	ok_btn.custom_minimum_size = Vector2(440, 44)
+	UiStyle.apply_button(ok_btn, true)
+	ok_btn.pressed.connect(_close_confide)
+	_confide_box.add_child(ok_btn)
+
+
+func _close_confide() -> void:
+	if _confide_popup:
+		_confide_popup.visible = false
+	_confide_offer = {}
+	_hide_popups()
+
+
+func _make_confide_popup() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 360)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -270
+	panel.offset_right = 270
+	panel.offset_top = -230
+	panel.offset_bottom = 230
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+	_confide_box = VBoxContainer.new()
+	_confide_box.add_theme_constant_override("separation", 10)
+	_confide_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(_confide_box)
+	return panel
 
 
 func _load_tex(path: String) -> Texture2D:

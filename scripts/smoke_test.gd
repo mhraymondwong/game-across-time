@@ -874,6 +874,258 @@ func _run() -> void:
 	if phase10_ok:
 		print("[smoke] mom + travel OK")
 
+	var phase11_ok := true
+	var confide_rng := RandomNumberGenerator.new()
+	confide_rng.seed = 20261021
+	if gs.daughter_name_error("   ") != "名字還空著。":
+		printerr("[smoke] FAIL blank daughter name")
+		phase11_ok = false
+	if gs.daughter_name_error("  阿禾  ") != "" or gs.daughter_name_error("小悠") != "":
+		printerr("[smoke] FAIL warm names should pass")
+		phase11_ok = false
+	if gs.daughter_name_error("一二三四五六七八") != "":
+		printerr("[smoke] FAIL 8-char name")
+		phase11_ok = false
+	if gs.daughter_name_error("一二三四五六七八九") != "八個字以內就好。":
+		printerr("[smoke] FAIL 9-char name")
+		phase11_ok = false
+	if gs.daughter_name_error("小\n悠") != "這個名字寫不進日記。":
+		printerr("[smoke] FAIL newline name")
+		phase11_ok = false
+	if gs.daughter_name_error("小%悠") != "這個符號先不要寫進名字。":
+		printerr("[smoke] FAIL percent name")
+		phase11_ok = false
+
+	gs.begin_new_game("  阿禾  ")
+	if str(gs.daughter_name) != "阿禾" or not str(gs.get_time_label()).contains("阿禾"):
+		printerr("[smoke] FAIL daughter name not in time label: %s" % str(gs.get_time_label()))
+		phase11_ok = false
+	var saw_named_photo := false
+	for named_page in gs.album:
+		if str(named_page.get("id", "")) == "family_photo_child" and str(named_page.get("body", "")).contains("阿禾"):
+			saw_named_photo = true
+	if not saw_named_photo:
+		printerr("[smoke] FAIL family album caption missing name")
+		phase11_ok = false
+	if not str(Mom.peek_line(gs)).contains("阿禾"):
+		printerr("[smoke] FAIL mom line missing name: %s" % Mom.peek_line(gs))
+		phase11_ok = false
+	gs.wants_new_game_name = true
+	var name_dump: Dictionary = gs.to_dict()
+	if name_dump.has("wants_new_game_name") or str(name_dump.get("daughter_name", "")) != "阿禾":
+		printerr("[smoke] FAIL daughter_name save shape")
+		phase11_ok = false
+	if not gs.save_game(0):
+		printerr("[smoke] FAIL named save")
+		phase11_ok = false
+	gs.begin_new_game()
+	if str(gs.daughter_name) != "小悠":
+		printerr("[smoke] FAIL new game should reset to 小悠")
+		phase11_ok = false
+	var preview_named: Dictionary = gs.save_slot_preview(0)
+	if not str(preview_named.get("detail", "")).contains("阿禾"):
+		printerr("[smoke] FAIL slot preview name: %s" % str(preview_named.get("detail", "")))
+		phase11_ok = false
+	gs.wants_new_game_name = true
+	if not gs.load_game(0) or str(gs.daughter_name) != "阿禾" or bool(gs.wants_new_game_name):
+		printerr("[smoke] FAIL daughter_name load")
+		phase11_ok = false
+	else:
+		print("[smoke] daughter name save/load OK")
+	gs.delete_save(0)
+
+	gs.begin_new_game("一二三四五六七八九")
+	if str(gs.daughter_name) != "小悠":
+		printerr("[smoke] FAIL overlong name should stay default")
+		phase11_ok = false
+
+	gs.year = 3
+	var child_pick: Dictionary = Confide.pick_line(gs, confide_rng)
+	gs.year = 9
+	var teen_pick: Dictionary = Confide.pick_line(gs, confide_rng)
+	if not str(child_pick.get("id", "")).begins_with("child_") or not str(teen_pick.get("id", "")).begins_with("teen_"):
+		printerr("[smoke] FAIL age pools %s / %s" % [str(child_pick.get("id", "")), str(teen_pick.get("id", ""))])
+		phase11_ok = false
+	var seat_line: Dictionary = Confide.get_line("child_worry_seat")
+	var seat_opts: Array = seat_line.get("options", [])
+	var seat_delta: Dictionary = {}
+	if seat_opts.size() < 2 or seat_opts.size() > 3:
+		printerr("[smoke] FAIL confide option count")
+		phase11_ok = false
+	else:
+		seat_delta = seat_opts[0].get("deltas", {})
+
+	gs.begin_new_game()
+	if bool(Confide.apply_choice(gs, "no_such_line", 0).get("ok", true)):
+		printerr("[smoke] FAIL invalid confide id")
+		phase11_ok = false
+	if bool(Confide.apply_choice(gs, "child_worry_seat", 9).get("ok", true)):
+		printerr("[smoke] FAIL invalid confide index")
+		phase11_ok = false
+	var mood_seat := int(gs.mood)
+	var warmth_before := int(gs.flags.get("mom_warmth", -1))
+	var chosen: Dictionary = Confide.apply_choice(gs, "child_worry_seat", 0)
+	if not bool(chosen.get("ok", false)):
+		printerr("[smoke] FAIL confide choice")
+		phase11_ok = false
+	elif int(gs.mood) != clampi(mood_seat + int(seat_delta.get("mood", 0)), 0, 100):
+		printerr("[smoke] FAIL confide mood")
+		phase11_ok = false
+	elif warmth_before != 70 or int(chosen.get("warmth", 0)) < 1:
+		printerr("[smoke] FAIL confide warmth bump")
+		phase11_ok = false
+	elif int(gs.flags.get("mom_warmth", -1)) != warmth_before + int(chosen.get("warmth", 0)):
+		printerr("[smoke] FAIL mom_warmth flag")
+		phase11_ok = false
+	elif not str(chosen.get("reply", "")).contains("小悠"):
+		printerr("[smoke] FAIL confide reply name")
+		phase11_ok = false
+	elif bool(Confide.apply_choice(gs, "child_worry_seat", 0).get("ok", true)):
+		printerr("[smoke] FAIL confide twice in one season")
+		phase11_ok = false
+	else:
+		gs.flags["tutorial_done"] = true
+		gs.months_played = 1
+		if not Confide.offer_for(gs, confide_rng).is_empty() or bool(gs.flags.get("confide_rolled_1_0", false)):
+			printerr("[smoke] FAIL confide offered after it was answered")
+			phase11_ok = false
+		else:
+			print("[smoke] confide choice OK")
+
+	gs.begin_new_game()
+	var blocked_tutorial: Dictionary = Confide.offer_for(gs, confide_rng)
+	if not blocked_tutorial.is_empty() or bool(gs.flags.get("confide_rolled_1_0", false)):
+		printerr("[smoke] FAIL confide during tutorial")
+		phase11_ok = false
+	gs.begin_new_game()
+	gs.flags["tutorial_done"] = true
+	gs.months_played = 1
+	gs.flags["mom_present_1_0"] = true
+	var blocked_mom: Dictionary = Confide.offer_for(gs, confide_rng)
+	if not blocked_mom.is_empty() or bool(gs.flags.get("confide_rolled_1_0", false)):
+		printerr("[smoke] FAIL confide while mom is home")
+		phase11_ok = false
+	gs.begin_new_game()
+	gs.flags["tutorial_done"] = true
+	gs.months_played = 1
+	gs.flags["mom_helped_1_0"] = true
+	var blocked_help: Dictionary = Confide.offer_for(gs, confide_rng)
+	if not blocked_help.is_empty() or bool(gs.flags.get("confide_rolled_1_0", false)):
+		printerr("[smoke] FAIL confide after mom help")
+		phase11_ok = false
+	else:
+		print("[smoke] confide blocked by tutorial/mom OK")
+
+	gs.begin_new_game()
+	gs.flags["tutorial_done"] = true
+	gs.months_played = 3
+	var confide_hits := 0
+	var conf_offer: Dictionary = {}
+	var conf_again: Dictionary = {}
+	for cy in range(1, 13):
+		for cs in range(4):
+			gs.year = cy
+			gs.season = cs
+			conf_offer = Confide.offer_for(gs, confide_rng)
+			if conf_offer.is_empty():
+				conf_again = Confide.offer_for(gs, confide_rng)
+				if not conf_again.is_empty():
+					printerr("[smoke] FAIL quiet season spoke again")
+					phase11_ok = false
+			else:
+				confide_hits += 1
+				if not str(conf_offer.get("body", "")).contains(str(gs.daughter_display_name())):
+					printerr("[smoke] FAIL confide body unnamed")
+					phase11_ok = false
+				var conf_opts: Array = conf_offer.get("options", [])
+				if conf_opts.size() < 2 or conf_opts.size() > 3:
+					printerr("[smoke] FAIL confide presented option count")
+					phase11_ok = false
+				conf_again = Confide.offer_for(gs, confide_rng)
+				if str(conf_again.get("id", "")) != str(conf_offer.get("id", "")):
+					printerr("[smoke] FAIL pending confide changed")
+					phase11_ok = false
+				elif str(gs.flags.get("confide_last_id", "")) != str(conf_offer.get("id", "")):
+					printerr("[smoke] FAIL confide_last_id")
+					phase11_ok = false
+	if confide_hits < 2 or confide_hits > 30:
+		printerr("[smoke] FAIL confide rate %d/48" % confide_hits)
+		phase11_ok = false
+	else:
+		print("[smoke] confide rate %d/48 OK" % confide_hits)
+
+	gs.begin_new_game("阿禾")
+	gs.year = 2
+	gs.season = 1
+	gs.cash = 9000
+	var named_trip: Dictionary = Travel.depart(gs, "china")
+	var saw_named_trip := false
+	if not bool(named_trip.get("ok", false)):
+		printerr("[smoke] FAIL named trip %s" % str(named_trip))
+		phase11_ok = false
+	else:
+		for named_trip_page in gs.album:
+			if str(named_trip_page.get("id", "")) == "travel_china_y2":
+				var trip_body := str(named_trip_page.get("body", ""))
+				saw_named_trip = trip_body.contains("阿禾") and trip_body.contains("媽媽")
+	if not saw_named_trip:
+		printerr("[smoke] FAIL travel vignette name")
+		phase11_ok = false
+
+	var title_src := FileAccess.get_file_as_string("res://scripts/title.gd")
+	var new_game_fn := ""
+	if title_src.contains("func _on_new_game"):
+		new_game_fn = title_src.split("func _on_new_game", true, 1)[1].split("func ", true, 1)[0]
+	if not title_src.contains("返回封面") or not title_src.contains("寫下名字") or not title_src.contains("DEFAULT_DAUGHTER_NAME") or new_game_fn.contains("begin_new_game"):
+		printerr("[smoke] FAIL title name panel source")
+		phase11_ok = false
+	gs.year = 4
+	gs.wants_new_game_name = true
+	var title_packed = load("res://scenes/title.tscn")
+	if title_packed == null:
+		printerr("[smoke] FAIL title scene for name panel")
+		phase11_ok = false
+	else:
+		var title_node: Node = title_packed.instantiate()
+		root.add_child(title_node)
+		var name_layer: Node = title_node.get_node_or_null("NameLayer")
+		var name_edit: LineEdit = null
+		var found_back := false
+		var scan: Array = [title_node]
+		while scan.size() > 0:
+			var scan_node: Node = scan.pop_back()
+			if scan_node is LineEdit and name_edit == null:
+				name_edit = scan_node
+			if scan_node is Button and str(scan_node.text) == "返回封面":
+				found_back = true
+			for scan_child in scan_node.get_children():
+				scan.append(scan_child)
+		if name_layer == null or not bool(name_layer.get("visible")) or name_edit == null or str(name_edit.text) != "小悠" or not found_back or int(gs.year) != 4:
+			printerr("[smoke] FAIL name panel did not open before the game")
+			phase11_ok = false
+		else:
+			title_node.call("_on_name_cancel")
+			if bool(gs.wants_new_game_name) or bool(name_layer.get("visible")) or int(gs.year) != 4:
+				printerr("[smoke] FAIL name cancel should stay on the title")
+				phase11_ok = false
+			else:
+				print("[smoke] name panel open/cancel OK")
+		title_node.free()
+	var ending_src := FileAccess.get_file_as_string("res://scripts/ending.gd")
+	if not ending_src.contains("wants_new_game_name"):
+		printerr("[smoke] FAIL ending should return to the name panel")
+		phase11_ok = false
+	var hub_confide_src := FileAccess.get_file_as_string("res://scripts/home_hub.gd")
+	if not hub_confide_src.contains("Confide.offer_for"):
+		printerr("[smoke] FAIL hub confide hook")
+		phase11_ok = false
+	if load("res://scripts/confide.gd") == null or load("res://scripts/title.gd") == null or load("res://scripts/home_hub.gd") == null:
+		printerr("[smoke] FAIL script load name/confide")
+		phase11_ok = false
+
+	if phase11_ok:
+		print("[smoke] name + confide OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -910,7 +1162,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false

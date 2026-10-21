@@ -25,7 +25,7 @@ const DESTINATIONS: Array = [
 		"blurb": "坐火車就到的城。老街、江風，和一碗熱湯。",
 		"lock_hint": "",
 		"vignette_title": "江邊的合照",
-		"vignette_body": "媽媽把外套披上她的肩，爸爸站在旁邊數著腳步。路人幫忙按下快門，三個人都笑了。這張照片要貼進相簿。",
+		"vignette_body": "媽媽把外套披上%s的肩，爸爸站在旁邊數著腳步。路人幫忙按下快門，三個人都笑了。這張照片要貼進相簿。",
 		"deltas": {"mood": 8, "social": 3, "stamina": 2, "charm": 1},
 	},
 	{
@@ -40,7 +40,7 @@ const DESTINATIONS: Array = [
 		"blurb": "電車、石階、便利商店的熱茶。",
 		"lock_hint": "國中以後開放（第 7 年・約 12 歲）",
 		"vignette_title": "神社石階上",
-		"vignette_body": "她拉著媽媽的袖子，一級一級往上走。爸爸在後面跟著數。風很乾淨，三個人的影子疊在一起。",
+		"vignette_body": "%s拉著媽媽的袖子，一級一級往上走。爸爸在後面跟著數。風很乾淨，三個人的影子疊在一起。",
 		"deltas": {"mood": 7, "academia": 3, "charm": 2, "social": 2},
 	},
 	{
@@ -55,7 +55,7 @@ const DESTINATIONS: Array = [
 		"blurb": "另一座城市的夜市與海風。",
 		"lock_hint": "稍後幾年開放（第 10 年・約 15 歲）",
 		"vignette_title": "夜市燈下",
-		"vignette_body": "媽媽挑了不辣的那串，她卻說想試試看。爸爸笑著付錢。燈很亮，像把家裡的燈帶到了別的街上。",
+		"vignette_body": "媽媽挑了不辣的那串，%s卻說想試試看。爸爸笑著付錢。燈很亮，像把家裡的燈帶到了別的街上。",
 		"deltas": {"mood": 6, "social": 4, "charm": 2, "stamina": 1},
 	},
 	{
@@ -70,7 +70,7 @@ const DESTINATIONS: Array = [
 		"blurb": "很長的飛行，很短的散步。石頭路與麵包香。",
 		"lock_hint": "稍後幾年開放（第 10 年・約 15 歲）",
 		"vignette_title": "石板路上的黃昏",
-		"vignette_body": "時差讓大家都有點睏。媽媽還是拉著她在橋上站了一會兒。爸爸說，看完這條河，我們就回去睡覺。",
+		"vignette_body": "時差讓大家都有點睏。媽媽還是拉著%s在橋上站了一會兒。爸爸說，看完這條河，我們就回去睡覺。",
 		"deltas": {"mood": 6, "academia": 4, "charm": 3, "social": 1},
 	},
 	{
@@ -85,7 +85,7 @@ const DESTINATIONS: Array = [
 		"blurb": "季節是反的。天很寬，風走很遠也不累。",
 		"lock_hint": "稍後幾年開放（第 10 年・約 15 歲）",
 		"vignette_title": "季節相反的天空",
-		"vignette_body": "她問為什麼這裡的冬天這麼亮。媽媽說，世界很大，天氣也會跟家裡不一樣。爸爸把帽子按好，風還是把三個人的頭髮吹亂了。",
+		"vignette_body": "%s問為什麼這裡的冬天這麼亮。媽媽說，世界很大，天氣也會跟家裡不一樣。爸爸把帽子按好，風還是把三個人的頭髮吹亂了。",
 		"deltas": {"mood": 8, "stamina": 4, "social": 2, "charm": 1},
 	},
 ]
@@ -202,7 +202,7 @@ static func depart(state, dest_id: String) -> Dictionary:
 	state.flags["travel_dest_%d" % y] = dest_id
 	state.apply_map_event_delta(deltas)
 	var title := str(dest.get("vignette_title", dest.get("title", "遠行")))
-	var body := str(dest.get("vignette_body", ""))
+	var body := Mom._named(state, str(dest.get("vignette_body", "")))
 	var thumb := str(dest.get("thumb", ""))
 	state.append_album_entry({
 		"id": "travel_%s_y%d" % [dest_id, y],
