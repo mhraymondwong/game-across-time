@@ -36,6 +36,10 @@ var _album_btn: Button
 var _affinity_lbl: Label
 var _npc_popup: PanelContainer
 var _npc_list: VBoxContainer
+var _save_popup: PanelContainer
+var _save_list: VBoxContainer
+var _pending_save_slot: int = -1
+var _tutorial_layer: CanvasLayer
 var _map_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 ## Approximate pin positions on 1280x720 map (fractions of viewport)
@@ -357,6 +361,12 @@ func _build_layout() -> void:
 	_npc_popup.visible = false
 	_popup_layer.add_child(_npc_popup)
 
+	_save_popup = _make_save_popup()
+	_save_popup.visible = false
+	_popup_layer.add_child(_save_popup)
+
+	_maybe_tutorial()
+
 
 func _update_daughter_art() -> void:
 	if _girl == null:
@@ -637,13 +647,157 @@ func _on_album_pressed() -> void:
 
 
 func _on_save_pressed() -> void:
-	var ok := GameState.save_game(0)
+	_hide_popups()
+	_pending_save_slot = -1
+	_popup_layer.get_node("Dim").visible = true
+	_rebuild_save_slots(false)
+	_save_popup.visible = true
+
+
+func _make_save_popup() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(480, 420)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -240
+	panel.offset_right = 240
+	panel.offset_top = -230
+	panel.offset_bottom = 230
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+
+	var title := Label.new()
+	title.text = "寫進哪一本日記"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(title, 22)
+	v.add_child(title)
+
+	_save_list = VBoxContainer.new()
+	_save_list.add_theme_constant_override("separation", 8)
+	_save_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(_save_list)
+
+	var close := Button.new()
+	close.text = "返回"
+	UiStyle.apply_button(close, false)
+	close.pressed.connect(_hide_popups)
+	v.add_child(close)
+	return panel
+
+
+func _rebuild_save_slots(confirming: bool) -> void:
+	if _save_list == null:
+		return
+	for c in _save_list.get_children():
+		c.queue_free()
+	if confirming:
+		var preview: Dictionary = GameState.save_slot_preview(_pending_save_slot)
+		var warn := Label.new()
+		warn.text = "要覆寫「%s」嗎？\n裡面是%s。" % [str(preview.get("title", "")), str(preview.get("detail", ""))]
+		warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(warn, 16)
+		_save_list.add_child(warn)
+		var yes := Button.new()
+		yes.text = "覆寫"
+		UiStyle.apply_button(yes, true)
+		yes.pressed.connect(func() -> void: _write_slot(_pending_save_slot))
+		_save_list.add_child(yes)
+		var no := Button.new()
+		no.text = "先不要"
+		UiStyle.apply_button(no, false)
+		no.pressed.connect(func() -> void: _rebuild_save_slots(false))
+		_save_list.add_child(no)
+		return
+	for i in range(3):
+		var preview: Dictionary = GameState.save_slot_preview(i)
+		var btn := Button.new()
+		btn.text = "%s\n%s" % [str(preview.get("title", "")), str(preview.get("detail", ""))]
+		btn.custom_minimum_size = Vector2(0, 64)
+		UiStyle.apply_soft_chip(btn, Color("FFE8F0"))
+		btn.add_theme_font_size_override("font_size", 15)
+		var slot := i
+		var exists := bool(preview.get("exists", false))
+		btn.pressed.connect(func() -> void: _on_save_slot(slot, exists))
+		_save_list.add_child(btn)
+
+
+func _on_save_slot(slot: int, exists: bool) -> void:
+	if exists:
+		_pending_save_slot = slot
+		_rebuild_save_slots(true)
+		return
+	_write_slot(slot)
+
+
+func _write_slot(slot: int) -> void:
+	var ok := GameState.save_game(slot)
+	_hide_popups()
 	if _save_toast:
-		_save_toast.text = "已存檔 ♡" if ok else "存檔失敗…"
-		get_tree().create_timer(1.6).timeout.connect(func():
+		if ok:
+			_save_toast.text = "已寫進%s ♡" % GameState.slot_title(slot)
+		else:
+			_save_toast.text = "存檔失敗…"
+		get_tree().create_timer(1.6).timeout.connect(func() -> void:
 			if is_instance_valid(_save_toast):
 				_save_toast.text = ""
 		)
+
+
+func _maybe_tutorial() -> void:
+	if GameState.year != 1 or GameState.season != 0 or GameState.months_played > 0:
+		return
+	if bool(GameState.flags.get("tutorial_done", false)):
+		return
+	_tutorial_layer = CanvasLayer.new()
+	_tutorial_layer.layer = 12
+	add_child(_tutorial_layer)
+
+	var card := PanelContainer.new()
+	card.offset_left = 24
+	card.offset_top = 68
+	card.offset_right = 460
+	card.offset_bottom = 292
+	card.add_theme_stylebox_override("panel", UiStyle.panel_style(Color(1, 0.96, 0.97, 0.96), Color("F090A8"), 18))
+	_tutorial_layer.add_child(card)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+
+	var title := Label.new()
+	title.text = "第一季的手帳"
+	UiStyle.apply_label(title, 20)
+	v.add_child(title)
+
+	for line in [
+		"地圖上的圖釘可以走訪住家、學校、公園。每個地方，一季只會遇見一件小事。",
+		"在下方日記替三個月各選一項活動。",
+		"排滿之後，按「確認本季排程」，就會結算，並讀到她們的小故事。",
+	]:
+		var lbl := Label.new()
+		lbl.text = line
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(lbl, 14)
+		v.add_child(lbl)
+
+	var ok := Button.new()
+	ok.text = "知道了 ♡"
+	UiStyle.apply_button(ok, true)
+	ok.pressed.connect(_dismiss_tutorial)
+	v.add_child(ok)
+
+
+func _dismiss_tutorial() -> void:
+	GameState.flags["tutorial_done"] = true
+	if _tutorial_layer:
+		_tutorial_layer.queue_free()
+		_tutorial_layer = null
 
 
 func _on_month_slot(i: int) -> void:
@@ -717,6 +871,8 @@ func _hide_popups() -> void:
 	_activity_popup.visible = false
 	if _npc_popup:
 		_npc_popup.visible = false
+	if _save_popup:
+		_save_popup.visible = false
 	var dim := _popup_layer.get_node_or_null("Dim")
 	if dim:
 		dim.visible = false

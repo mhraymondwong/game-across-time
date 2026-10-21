@@ -34,7 +34,10 @@ var album: Array = []
 ## When set, the album scene returns here and may show album_browse instead of album
 var album_return_scene: String = ""
 var album_browse: Array = []
+var save_name: String = ""
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+const SLOT_TITLES: PackedStringArray = ["第一本日記", "第二本日記", "第三本日記"]
 
 var flags: Dictionary = {}
 ## npc id -> affinity 0–100
@@ -77,6 +80,7 @@ func begin_new_game() -> void:
 	album = []
 	album_return_scene = ""
 	album_browse = []
+	save_name = ""
 	_event_rng.randomize()
 	flags.clear()
 	reset_npc_affinity()
@@ -469,6 +473,7 @@ func to_dict() -> Dictionary:
 		"pending_ending_after_review": pending_ending_after_review,
 		"npc_affinity": npc_affinity.duplicate(),
 		"album": _dict_array_dup(album),
+		"save_name": save_name,
 	}
 
 
@@ -527,6 +532,7 @@ func from_dict(d: Dictionary) -> void:
 	album = _parse_dict_array(d.get("album", []))
 	album_browse = []
 	album_return_scene = ""
+	save_name = str(d.get("save_name", ""))
 	state_changed.emit()
 
 
@@ -718,7 +724,68 @@ func has_save(slot: int = 0) -> bool:
 	return FileAccess.file_exists(_save_path(slot))
 
 
+func slot_title(slot: int) -> String:
+	return SLOT_TITLES[clampi(slot, 0, SLOT_TITLES.size() - 1)]
+
+
+func peek_save(slot: int) -> Dictionary:
+	var path := _save_path(slot)
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var text := f.get_as_text()
+	f.close()
+	var data = JSON.parse_string(text)
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	return data
+
+
+func save_slot_preview(slot: int) -> Dictionary:
+	var data := peek_save(slot)
+	if data.is_empty():
+		return {
+			"exists": false,
+			"slot": slot,
+			"title": slot_title(slot),
+			"detail": "尚未寫下",
+			"year": 0,
+			"season": 0,
+			"album_count": 0,
+		}
+	var y := int(data.get("year", 1))
+	var s := int(data.get("season", 0))
+	var name := str(data.get("save_name", ""))
+	if name == "":
+		name = slot_title(slot)
+	var album_raw = data.get("album", [])
+	var album_n := 0
+	if typeof(album_raw) == TYPE_ARRAY:
+		album_n = album_raw.size()
+	return {
+		"exists": true,
+		"slot": slot,
+		"title": name,
+		"detail": "第 %d 年 · %s · %d 歲" % [y, GameConfig.season_name(s), GameConfig.age_for_year(y)],
+		"year": y,
+		"season": s,
+		"album_count": album_n,
+	}
+
+
+func browse_album_from_slot(slot: int) -> bool:
+	var data := peek_save(slot)
+	if data.is_empty():
+		return false
+	album_browse = _parse_dict_array(data.get("album", []))
+	album_return_scene = "res://scenes/title.tscn"
+	return not album_browse.is_empty()
+
+
 func save_game(slot: int = 0) -> bool:
+	save_name = slot_title(slot)
 	var path := _save_path(slot)
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:

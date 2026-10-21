@@ -374,6 +374,112 @@ func _run() -> void:
 	else:
 		print("[smoke] title.tscn OK")
 
+	# —— Phase 9: vignettes, NPC affinity, album, save slots, tutorial flag ——
+	var phase9_ok := true
+	gs.begin_new_game()
+	for aid in Activities.ids():
+		var vig: Dictionary = ActivityScenes.get_vignette(str(aid), 0)
+		if str(vig.get("title", "")) == "" or str(vig.get("body", "")).length() < 12:
+			printerr("[smoke] FAIL vignette text for %s" % str(aid))
+			phase9_ok = false
+	gs.season_schedule = ["social_friends", "rest_park", "virtue_chores"] as Array[String]
+	gs.resolve_season()
+	if gs.last_vignettes.size() != 3:
+		printerr("[smoke] FAIL last_vignettes size %s" % str(gs.last_vignettes.size()))
+		phase9_ok = false
+	else:
+		print("[smoke] last_vignettes x3 OK")
+	var saw_friend := false
+	for entry in gs.album:
+		if str(entry.get("title", "")) == "週末的同學":
+			saw_friend = true
+	if not saw_friend:
+		printerr("[smoke] FAIL notable vignette missing from album")
+		phase9_ok = false
+	else:
+		print("[smoke] notable vignette in album OK")
+	if int(gs.npc_affinity.get("lin_xiaoqing", 0)) < 23:
+		printerr("[smoke] FAIL lin affinity after social_friends")
+		phase9_ok = false
+	else:
+		print("[smoke] lin affinity %s OK" % str(gs.npc_affinity.get("lin_xiaoqing", 0)))
+
+	gs.begin_new_game()
+	var map_rng := RandomNumberGenerator.new()
+	map_rng.seed = 3
+	var ev1: Dictionary = gs.trigger_place_event("home", map_rng, true, true)
+	var ev2: Dictionary = gs.trigger_place_event("home", map_rng, true, true)
+	if bool(ev1.get("skipped", true)) or not bool(ev2.get("skipped", false)):
+		printerr("[smoke] FAIL map once-per-place cooldown")
+		phase9_ok = false
+	elif int(gs.flags.get("visited_home", 0)) != 2:
+		printerr("[smoke] FAIL visit count during cooldown")
+		phase9_ok = false
+	else:
+		print("[smoke] map cooldown + visit count OK")
+
+	gs.flags["tutorial_done"] = true
+	gs.npc_affinity["chan_auntie"] = 64
+	gs.album = [{
+		"id": "evt_test",
+		"year": 2,
+		"season": 1,
+		"title": "測試海灘",
+		"thumb_path": "res://assets/events/beach.jpg",
+		"body": "浪花很淺。",
+	}]
+	gs.year = 2
+	gs.season = 1
+	if not gs.save_game(1):
+		printerr("[smoke] FAIL save slot 1")
+		phase9_ok = false
+	var preview: Dictionary = gs.save_slot_preview(1)
+	if not bool(preview.get("exists", false)) or int(preview.get("year", -1)) != 2 or str(preview.get("title", "")) != "第二本日記":
+		printerr("[smoke] FAIL slot preview %s" % str(preview))
+		phase9_ok = false
+	elif not str(preview.get("detail", "")).contains("夏"):
+		printerr("[smoke] FAIL slot season preview %s" % str(preview.get("detail", "")))
+		phase9_ok = false
+	else:
+		print("[smoke] slot preview %s / %s OK" % [preview.get("title", ""), preview.get("detail", "")])
+	gs.begin_new_game()
+	if not gs.load_game(1):
+		printerr("[smoke] FAIL load slot 1")
+		phase9_ok = false
+	elif int(gs.npc_affinity.get("chan_auntie", -1)) != 64:
+		printerr("[smoke] FAIL npc affinity roundtrip")
+		phase9_ok = false
+	elif not bool(gs.flags.get("tutorial_done", false)):
+		printerr("[smoke] FAIL tutorial flag roundtrip")
+		phase9_ok = false
+	elif gs.album.is_empty() or str(gs.album[0].get("id", "")) != "evt_test":
+		printerr("[smoke] FAIL album roundtrip")
+		phase9_ok = false
+	else:
+		print("[smoke] slot 1 affinity/album/tutorial roundtrip OK")
+	gs.delete_save(1)
+	if gs.has_save(1) or bool(gs.save_slot_preview(2).get("exists", false)):
+		printerr("[smoke] FAIL empty slot preview")
+		phase9_ok = false
+
+	gs.begin_new_game()
+	gs.npc_affinity["lin_xiaoqing"] = 80
+	gs.npc_affinity["chan_auntie"] = 10
+	gs.npc_affinity["wong_doctor"] = 10
+	gs.mood = 40
+	gs.stamina = 40
+	gs.charm = 10
+	gs.morals = 10
+	gs.social = 10
+	gs.academia = 10
+	gs.cash = 100
+	var bond: Dictionary = Endings.evaluate(gs)
+	if str(bond.get("id", "")) != "town_bond" or not str(bond.get("summary", "")).contains("林小晴"):
+		printerr("[smoke] FAIL town_bond ending %s" % str(bond.get("id", "")))
+		phase9_ok = false
+	else:
+		print("[smoke] town_bond ending OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -410,7 +516,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false
