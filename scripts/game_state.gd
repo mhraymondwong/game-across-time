@@ -27,6 +27,8 @@ var last_activity_names: Array[String] = []
 var last_season_event: Dictionary = {}
 ## One vignette per scheduled month (title, body, sticker, notable…)
 var last_vignettes: Array = []
+## Optional map beat rolled at season resolve (once per place per season)
+var last_roaming_event: Dictionary = {}
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var flags: Dictionary = {}
@@ -66,6 +68,7 @@ func begin_new_game() -> void:
 	last_activity_names = []
 	last_season_event = {}
 	last_vignettes = []
+	last_roaming_event = {}
 	_event_rng.randomize()
 	flags.clear()
 	reset_npc_affinity()
@@ -238,6 +241,7 @@ func resolve_season() -> Dictionary:
 	var sev_bump := TownNpcs.affinity_for_season_event(str(ev.get("id", "")))
 	if not sev_bump.is_empty():
 		apply_affinity_map(sev_bump, false)
+	_roll_roaming_map_event()
 	var ev_title := str(ev.get("title", ""))
 	if ev_title != "":
 		note_year_event(ev_title)
@@ -448,6 +452,7 @@ func to_dict() -> Dictionary:
 		"last_activity_names": names,
 		"last_season_event": last_season_event.duplicate(true) if typeof(last_season_event) == TYPE_DICTIONARY else {},
 		"last_vignettes": _dict_array_dup(last_vignettes),
+		"last_roaming_event": last_roaming_event.duplicate(true) if typeof(last_roaming_event) == TYPE_DICTIONARY else {},
 		"year_start_stats": year_start_stats.duplicate(true) if typeof(year_start_stats) == TYPE_DICTIONARY else {},
 		"year_activity_names": year_activity_names.duplicate(),
 		"year_event_titles": year_event_titles.duplicate(),
@@ -491,6 +496,8 @@ func from_dict(d: Dictionary) -> void:
 	var lse = d.get("last_season_event", {})
 	last_season_event = lse.duplicate(true) if typeof(lse) == TYPE_DICTIONARY else {}
 	last_vignettes = _parse_dict_array(d.get("last_vignettes", []))
+	var lre = d.get("last_roaming_event", {})
+	last_roaming_event = lre.duplicate(true) if typeof(lre) == TYPE_DICTIONARY else {}
 	var yss = d.get("year_start_stats", {})
 	year_start_stats = yss.duplicate(true) if typeof(yss) == TYPE_DICTIONARY else {}
 	year_activity_names = []
@@ -508,6 +515,84 @@ func from_dict(d: Dictionary) -> void:
 	pending_ending_after_review = bool(d.get("pending_ending_after_review", false))
 	_load_npc_affinity(d.get("npc_affinity", null))
 	state_changed.emit()
+
+
+func map_event_flag(place_id: String) -> String:
+	return "map_evt_%d_%d_%s" % [year, season, place_id]
+
+
+func map_place_event_ready(place_id: String) -> bool:
+	return not bool(flags.get(map_event_flag(place_id), false))
+
+
+## Click or season-roam. count_visit records the pin; allow_once keeps unique stories for clicks.
+func trigger_place_event(place_id: String, rng: RandomNumberGenerator, count_visit: bool, allow_once: bool = true) -> Dictionary:
+	if count_visit:
+		var visit_key := "visited_%s" % place_id
+		flags[visit_key] = int(flags.get(visit_key, 0)) + 1
+	if not map_place_event_ready(place_id):
+		state_changed.emit()
+		return {
+			"skipped": true,
+			"place": place_id,
+			"title": "安靜的一角",
+			"body": "這季你們已經在這裡遇過一件小事了。風還在，人聲淡了些，先把風景看進眼裡就好。",
+			"deltas": {},
+		}
+	var ev: Dictionary = {}
+	if allow_once:
+		ev = MapEvents.pick_event(place_id, flags, rng)
+	else:
+		ev = MapEvents.pick_flavor_event(place_id, rng)
+	if ev.is_empty():
+		state_changed.emit()
+		return {
+			"skipped": true,
+			"place": place_id,
+			"title": "安靜的一角",
+			"body": "這裡今天很安靜。你們站了一會兒，然後繼續往前走。",
+			"deltas": {},
+		}
+	flags[map_event_flag(place_id)] = true
+	if bool(ev.get("once", false)):
+		var fk := str(ev.get("flag", ev.get("id", "")))
+		if fk != "":
+			flags[fk] = true
+	var deltas: Dictionary = {}
+	var raw_d = ev.get("deltas", {})
+	if typeof(raw_d) == TYPE_DICTIONARY:
+		deltas = raw_d
+	if not deltas.is_empty():
+		apply_map_event_delta(deltas)
+	var aff = ev.get("affinity", {})
+	if typeof(aff) == TYPE_DICTIONARY and not (aff as Dictionary).is_empty():
+		apply_affinity_map(aff, false)
+	var title := str(ev.get("title", ""))
+	if title != "":
+		note_year_event(title)
+	ev["skipped"] = false
+	ev["place"] = place_id
+	state_changed.emit()
+	return ev
+
+
+func _roll_roaming_map_event() -> void:
+	## About one in three seasons, a place that has not fired yet offers a small beat.
+	last_roaming_event = {}
+	if _event_rng.randf() >= 0.34:
+		return
+	var open: Array[String] = []
+	for pid in MapEvents.PLACE_IDS:
+		if map_place_event_ready(pid):
+			open.append(pid)
+	if open.is_empty():
+		return
+	var place_id: String = open[_event_rng.randi_range(0, open.size() - 1)]
+	var ev := trigger_place_event(place_id, _event_rng, false, false)
+	if bool(ev.get("skipped", true)):
+		return
+	ev["place_name"] = str(Activities.PLACE_NAMES.get(place_id, place_id))
+	last_roaming_event = ev
 
 
 func reset_npc_affinity() -> void:

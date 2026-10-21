@@ -295,6 +295,18 @@ static func pick_event(place_id: String, flags: Dictionary, rng: RandomNumberGen
 	return chosen.duplicate(true)
 
 
+## Non-once flavor only, so a roaming beat does not spend a one-time story.
+static func pick_flavor_event(place_id: String, rng: RandomNumberGenerator) -> Dictionary:
+	var flavor: Array[Dictionary] = []
+	for e in events_for_place(place_id):
+		if bool(e.get("once", false)):
+			continue
+		flavor.append(e)
+	if flavor.is_empty():
+		return {}
+	return flavor[rng.randi_range(0, flavor.size() - 1)].duplicate(true)
+
+
 static func format_delta_line(deltas: Dictionary) -> String:
 	if deltas.is_empty():
 		return ""

@@ -566,20 +566,11 @@ func _show_place_popup(p: Dictionary) -> void:
 	_popup_layer.get_node("Dim").visible = true
 	var place_id := str(p.get("id", ""))
 	var place_name := str(p.get("name", "地點"))
-	var ev: Dictionary = MapEvents.pick_event(place_id, GameState.flags, _map_rng)
-	# Visit counters / once flags
-	var visit_key := "visited_%s" % place_id
-	GameState.flags[visit_key] = int(GameState.flags.get(visit_key, 0)) + 1
-	if bool(ev.get("once", false)):
-		var fk := str(ev.get("flag", ev.get("id", "")))
-		if fk != "":
-			GameState.flags[fk] = true
-	var deltas: Dictionary = ev.get("deltas", {})
-	if typeof(deltas) == TYPE_DICTIONARY and not deltas.is_empty():
-		GameState.apply_map_event_delta(deltas)
-	var map_title := str(ev.get("title", ""))
-	if map_title != "":
-		GameState.note_year_event(map_title)
+	var ev: Dictionary = GameState.trigger_place_event(place_id, _map_rng, true, true)
+	var deltas: Dictionary = {}
+	var raw_d = ev.get("deltas", {})
+	if typeof(raw_d) == TYPE_DICTIONARY:
+		deltas = raw_d
 	_popup_title.text = "%s · %s" % [place_name, str(ev.get("title", ""))]
 	for c in _popup_body.get_children():
 		c.queue_free()
@@ -601,8 +592,7 @@ func _show_place_popup(p: Dictionary) -> void:
 		UiStyle.apply_label(dl, 14)
 		_popup_body.add_child(dl)
 	var aff = ev.get("affinity", {})
-	if typeof(aff) == TYPE_DICTIONARY and not aff.is_empty():
-		GameState.apply_affinity_map(aff)
+	if typeof(aff) == TYPE_DICTIONARY and not aff.is_empty() and not bool(ev.get("skipped", false)):
 		var aff_line := TownNpcs.format_bump_line(aff)
 		if aff_line != "":
 			var al := Label.new()

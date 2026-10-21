@@ -106,6 +106,27 @@ func _ready() -> void:
 				thumb.texture = tex
 				v.add_child(thumb)
 
+	var roam: Dictionary = GameState.last_roaming_event
+	if not roam.is_empty() and not bool(roam.get("skipped", false)):
+		var roam_title := Label.new()
+		roam_title.text = "路上遇見 · %s · %s" % [str(roam.get("place_name", "")), str(roam.get("title", ""))]
+		roam_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(roam_title, 18)
+		v.add_child(roam_title)
+		var roam_body := Label.new()
+		roam_body.text = str(roam.get("body", ""))
+		roam_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(roam_body, 15, true)
+		v.add_child(roam_body)
+		var roam_d = roam.get("deltas", {})
+		if typeof(roam_d) == TYPE_DICTIONARY:
+			var roam_line := MapEvents.format_delta_line(roam_d)
+			if roam_line != "":
+				var roam_lbl := Label.new()
+				roam_lbl.text = roam_line
+				UiStyle.apply_label(roam_lbl, 14)
+				v.add_child(roam_lbl)
+
 	var delta_lbl := Label.new()
 	delta_lbl.text = _format_deltas(d)
 	delta_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
