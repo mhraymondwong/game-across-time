@@ -1,0 +1,26 @@
+# Cloudflare Workers Static Assets for 《時光裡的她》 (game-across-time).
+# This file does not publish anything until someone runs `wrangler deploy`
+# with an API token. Linking the GitHub repo in the dashboard is documented
+# in docs/deploy-cloudflare.md and is not required for this scaffold.
+#
+# Account ID: Workers & Pages → Overview → right sidebar (Account ID).
+# You can paste it here, or leave this commented and set CLOUDFLARE_ACCOUNT_ID
+# (GitHub Actions secret or local shell). Wrangler reads the env var.
+# account_id = ""
+
+name = "game-across-time"
+compatibility_date = "2026-10-21"
+workers_dev = true
+
+# Godot HTML5 output only. Produce it with scripts/export_web.sh first.
+# There is no Worker script; Workers hosts these static files.
+[assets]
+directory = "./build/web"
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
+
+# Pages alternative (does not read [assets] above):
+#   npx wrangler pages deploy build/web --project-name game-across-time
+# Local preview without a token:
+#   npx wrangler pages dev build/web
+#   npx wrangler dev
