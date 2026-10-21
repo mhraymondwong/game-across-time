@@ -25,8 +25,9 @@ const EVENTS: Array[Dictionary] = [
 		"id": "home_laundry_day",
 		"place": "home",
 		"title": "曬衣午後",
-		"body": "陽台曬滿衣服。她踮腳幫忙夾衣架，笑說長大後要買一台不會卡住的洗衣機。",
+		"body": "陽台曬滿衣服。陳阿姨在巷口喊她幫忙遞衣夾，她踮腳夾好，笑說長大後要買一台不會卡住的洗衣機。",
 		"deltas": {"stamina": 1, "morals": 1, "mood": 1},
+		"affinity": {"chan_auntie": 2},
 	},
 	{
 		"id": "home_night_story",
@@ -56,8 +57,9 @@ const EVENTS: Array[Dictionary] = [
 		"id": "school_notice",
 		"place": "school",
 		"title": "佈告欄一瞥",
-		"body": "佈告欄貼滿社團招募。她指著書法社說「以後也可以試試」，臉有點紅。",
+		"body": "佈告欄貼滿社團招募。林小晴指著書法社說以後也可以試試，兩個人的臉都有點紅。",
 		"deltas": {"academia": 1, "social": 1},
+		"affinity": {"lin_xiaoqing": 2},
 	},
 	{
 		"id": "school_teacher_hello",
@@ -79,8 +81,9 @@ const EVENTS: Array[Dictionary] = [
 		"id": "school_after_bell",
 		"place": "school",
 		"title": "放學鈴聲",
-		"body": "放學鈴聲一響，她背著書包跑出來，說今天小考還不錯——你先買了兩瓶豆漿。",
+		"body": "放學鈴聲一響，她背著書包跑出來，林小晴還在校門口揮手。她說今天小考還不錯——你先買了兩瓶豆漿。",
 		"deltas": {"mood": 2, "cash": -40},
+		"affinity": {"lin_xiaoqing": 2},
 	},
 	# —— 公園 ——
 	{
@@ -110,8 +113,9 @@ const EVENTS: Array[Dictionary] = [
 		"id": "park_neighbor_dog",
 		"place": "park",
 		"title": "鄰居的狗",
-		"body": "隔壁王媽媽牽著小狗經過。她蹲下來打招呼，小狗把鼻子湊到她手心。",
+		"body": "陳阿姨牽著小狗經過。她蹲下來打招呼，小狗把鼻子湊到她手心，阿姨塞來一顆話梅。",
 		"deltas": {"social": 2, "mood": 2},
+		"affinity": {"chan_auntie": 3},
 	},
 	{
 		"id": "park_quiet_bench",
@@ -165,6 +169,7 @@ const EVENTS: Array[Dictionary] = [
 		"title": "例行檢查",
 		"body": "王醫師聽完心跳，說長得結實。她拿到一顆糖，走出門時還在數脈搏玩。",
 		"deltas": {"stamina": 2, "mood": 1, "cash": -150},
+		"affinity": {"wong_doctor": 3},
 	},
 	{
 		"id": "clinic_waiting",
@@ -177,8 +182,9 @@ const EVENTS: Array[Dictionary] = [
 		"id": "clinic_height",
 		"place": "clinic",
 		"title": "量身高",
-		"body": "身高尺旁她踮了一下腳又乖乖站直。醫師笑說又高了一點，你把數字記在手帳。",
+		"body": "身高尺旁她踮了一下腳又乖乖站直。王醫師笑說又高了一點，你把數字記在手帳。",
 		"deltas": {"stamina": 1, "mood": 2},
+		"affinity": {"wong_doctor": 2},
 		"once": true,
 		"flag": "clinic_height_noted",
 	},
@@ -287,6 +293,18 @@ static func pick_event(place_id: String, flags: Dictionary, rng: RandomNumberGen
 	else:
 		chosen = pool[rng.randi_range(0, pool.size() - 1)]
 	return chosen.duplicate(true)
+
+
+## Non-once flavor only, so a roaming beat does not spend a one-time story.
+static func pick_flavor_event(place_id: String, rng: RandomNumberGenerator) -> Dictionary:
+	var flavor: Array[Dictionary] = []
+	for e in events_for_place(place_id):
+		if bool(e.get("once", false)):
+			continue
+		flavor.append(e)
+	if flavor.is_empty():
+		return {}
+	return flavor[rng.randi_range(0, flavor.size() - 1)].duplicate(true)
 
 
 static func format_delta_line(deltas: Dictionary) -> String:

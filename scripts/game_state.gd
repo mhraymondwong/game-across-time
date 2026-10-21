@@ -25,9 +25,23 @@ var last_deltas: Dictionary = {}
 var last_activity_names: Array[String] = []
 ## Last seasonal weather / festival event (title, body, sticker, deltas)
 var last_season_event: Dictionary = {}
+## One vignette per scheduled month (title, body, sticker, notable…)
+var last_vignettes: Array = []
+## Optional map beat rolled at season resolve (once per place per season)
+var last_roaming_event: Dictionary = {}
+## Living album: {id, year, season, title, thumb_path, body}
+var album: Array = []
+## When set, the album scene returns here and may show album_browse instead of album
+var album_return_scene: String = ""
+var album_browse: Array = []
+var save_name: String = ""
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
+const SLOT_TITLES: PackedStringArray = ["第一本日記", "第二本日記", "第三本日記"]
+
 var flags: Dictionary = {}
+## npc id -> affinity 0–100
+var npc_affinity: Dictionary = {}
 var months_played: int = 0
 var is_game_over: bool = false
 var final_ending: Dictionary = {}
@@ -61,8 +75,15 @@ func begin_new_game() -> void:
 	last_deltas = {}
 	last_activity_names = []
 	last_season_event = {}
+	last_vignettes = []
+	last_roaming_event = {}
+	album = []
+	album_return_scene = ""
+	album_browse = []
+	save_name = ""
 	_event_rng.randomize()
 	flags.clear()
+	reset_npc_affinity()
 	months_played = 0
 	is_game_over = false
 	final_ending = {}
@@ -157,6 +178,9 @@ func apply_activity(activity_id: String) -> Dictionary:
 	delta["name"] = str(def.get("name", activity_id))
 
 	_apply_delta(delta)
+	var bump := TownNpcs.affinity_for_activity(aid)
+	if not bump.is_empty():
+		apply_affinity_map(bump, false)
 	var disp := str(delta.get("name", activity_id))
 	if disp != "":
 		year_activity_names.append(disp)
@@ -207,6 +231,7 @@ func apply_map_event_delta(delta: Dictionary) -> void:
 func resolve_season() -> Dictionary:
 	var before := get_stats_dict()
 	last_activity_names = []
+	last_vignettes = []
 	var month_logs: Array = []
 	for i in range(GameConfig.MONTHS_PER_SEASON):
 		var id: String = season_schedule[i] if i < season_schedule.size() else ""
@@ -215,11 +240,20 @@ func resolve_season() -> Dictionary:
 		var d := apply_activity(id)
 		last_activity_names.append(str(d.get("name", id)))
 		month_logs.append(d)
+		var vig := ActivityScenes.get_vignette(id, season)
+		vig["month_index"] = i
+		vig["month_label"] = GameConfig.MONTH_LABELS[i] if i < GameConfig.MONTH_LABELS.size() else "這個月"
+		vig["activity_name"] = str(d.get("name", id))
+		last_vignettes.append(vig)
 
 	# Seasonal weather / festival event (~55% chance of themed event, else light beat)
 	var ev: Dictionary = SeasonEvents.roll_event(season, _event_rng, 0.55)
 	last_season_event = ev
 	SeasonEvents.apply_deltas_to_state(self, ev.get("deltas", {}))
+	var sev_bump := TownNpcs.affinity_for_season_event(str(ev.get("id", "")))
+	if not sev_bump.is_empty():
+		apply_affinity_map(sev_bump, false)
+	_roll_roaming_map_event()
 	var ev_title := str(ev.get("title", ""))
 	if ev_title != "":
 		note_year_event(ev_title)
@@ -231,7 +265,10 @@ func resolve_season() -> Dictionary:
 	totals["activities"] = last_activity_names.duplicate()
 	totals["month_logs"] = month_logs
 	totals["event"] = last_season_event.duplicate(true)
+	totals["vignettes"] = _dict_array_dup(last_vignettes)
+	totals["affinity_note"] = TownNpcs.season_note(self)
 	last_deltas = totals
+	record_season_memories()
 	season_resolved.emit(totals)
 	return totals
 
@@ -314,6 +351,9 @@ func _year_highlights() -> Array:
 		out.append("回憶・%s" % s2)
 		if out.size() >= 6:
 			break
+	var aff_line := TownNpcs.year_highlight(self)
+	if aff_line != "":
+		out.append(aff_line)
 	if out.is_empty():
 		out.append("平靜的一年，手帳裡也留下了淡淡的粉紅。")
 	return out
@@ -424,11 +464,16 @@ func to_dict() -> Dictionary:
 		"last_deltas": last_deltas.duplicate(true) if typeof(last_deltas) == TYPE_DICTIONARY else {},
 		"last_activity_names": names,
 		"last_season_event": last_season_event.duplicate(true) if typeof(last_season_event) == TYPE_DICTIONARY else {},
+		"last_vignettes": _dict_array_dup(last_vignettes),
+		"last_roaming_event": last_roaming_event.duplicate(true) if typeof(last_roaming_event) == TYPE_DICTIONARY else {},
 		"year_start_stats": year_start_stats.duplicate(true) if typeof(year_start_stats) == TYPE_DICTIONARY else {},
 		"year_activity_names": year_activity_names.duplicate(),
 		"year_event_titles": year_event_titles.duplicate(),
 		"last_year_review": last_year_review.duplicate(true) if typeof(last_year_review) == TYPE_DICTIONARY else {},
 		"pending_ending_after_review": pending_ending_after_review,
+		"npc_affinity": npc_affinity.duplicate(),
+		"album": _dict_array_dup(album),
+		"save_name": save_name,
 	}
 
 
@@ -465,6 +510,9 @@ func from_dict(d: Dictionary) -> void:
 			last_activity_names.append(str(n))
 	var lse = d.get("last_season_event", {})
 	last_season_event = lse.duplicate(true) if typeof(lse) == TYPE_DICTIONARY else {}
+	last_vignettes = _parse_dict_array(d.get("last_vignettes", []))
+	var lre = d.get("last_roaming_event", {})
+	last_roaming_event = lre.duplicate(true) if typeof(lre) == TYPE_DICTIONARY else {}
 	var yss = d.get("year_start_stats", {})
 	year_start_stats = yss.duplicate(true) if typeof(yss) == TYPE_DICTIONARY else {}
 	year_activity_names = []
@@ -480,7 +528,192 @@ func from_dict(d: Dictionary) -> void:
 	var lyr = d.get("last_year_review", {})
 	last_year_review = lyr.duplicate(true) if typeof(lyr) == TYPE_DICTIONARY else {}
 	pending_ending_after_review = bool(d.get("pending_ending_after_review", false))
+	_load_npc_affinity(d.get("npc_affinity", null))
+	album = _parse_dict_array(d.get("album", []))
+	album_browse = []
+	album_return_scene = ""
+	save_name = str(d.get("save_name", ""))
 	state_changed.emit()
+
+
+func append_album_entry(entry: Dictionary) -> void:
+	var eid := str(entry.get("id", ""))
+	if eid == "":
+		return
+	for existing in album:
+		if typeof(existing) == TYPE_DICTIONARY and str(existing.get("id", "")) == eid:
+			return
+	album.append({
+		"id": eid,
+		"year": int(entry.get("year", year)),
+		"season": int(entry.get("season", season)),
+		"title": str(entry.get("title", "")),
+		"thumb_path": str(entry.get("thumb_path", "")),
+		"body": str(entry.get("body", "")),
+	})
+
+
+func record_season_memories() -> void:
+	## Beach / mountain stills, plus notable activity vignettes from this season.
+	var ev := last_season_event
+	if str(ev.get("media_still", "")) != "":
+		append_album_entry({
+			"id": "evt_%s_y%d" % [str(ev.get("id", "event")), year],
+			"year": year,
+			"season": season,
+			"title": str(ev.get("title", "")),
+			"thumb_path": GameConfig.event_still_path(str(ev.get("media_still", ""))),
+			"body": str(ev.get("body", "")),
+		})
+	for item in last_vignettes:
+		if typeof(item) != TYPE_DICTIONARY:
+			continue
+		var v: Dictionary = item
+		if not bool(v.get("notable", false)):
+			continue
+		var thumb := ""
+		var still_id := str(v.get("still", ""))
+		if still_id != "":
+			thumb = GameConfig.event_still_path(still_id)
+		if thumb == "":
+			thumb = SeasonEvents.sticker_path(str(v.get("sticker", "")))
+		append_album_entry({
+			"id": "vig_%s_y%d_s%d_m%d" % [
+				str(v.get("activity_id", "act")), year, season, int(v.get("month_index", 0))
+			],
+			"year": year,
+			"season": season,
+			"title": str(v.get("title", "")),
+			"thumb_path": thumb,
+			"body": str(v.get("body", "")),
+		})
+
+
+func map_event_flag(place_id: String) -> String:
+	return "map_evt_%d_%d_%s" % [year, season, place_id]
+
+
+func map_place_event_ready(place_id: String) -> bool:
+	return not bool(flags.get(map_event_flag(place_id), false))
+
+
+## Click or season-roam. count_visit records the pin; allow_once keeps unique stories for clicks.
+func trigger_place_event(place_id: String, rng: RandomNumberGenerator, count_visit: bool, allow_once: bool = true) -> Dictionary:
+	if count_visit:
+		var visit_key := "visited_%s" % place_id
+		flags[visit_key] = int(flags.get(visit_key, 0)) + 1
+	if not map_place_event_ready(place_id):
+		state_changed.emit()
+		return {
+			"skipped": true,
+			"place": place_id,
+			"title": "安靜的一角",
+			"body": "這季你們已經在這裡遇過一件小事了。風還在，人聲淡了些，先把風景看進眼裡就好。",
+			"deltas": {},
+		}
+	var ev: Dictionary = {}
+	if allow_once:
+		ev = MapEvents.pick_event(place_id, flags, rng)
+	else:
+		ev = MapEvents.pick_flavor_event(place_id, rng)
+	if ev.is_empty():
+		state_changed.emit()
+		return {
+			"skipped": true,
+			"place": place_id,
+			"title": "安靜的一角",
+			"body": "這裡今天很安靜。你們站了一會兒，然後繼續往前走。",
+			"deltas": {},
+		}
+	flags[map_event_flag(place_id)] = true
+	if bool(ev.get("once", false)):
+		var fk := str(ev.get("flag", ev.get("id", "")))
+		if fk != "":
+			flags[fk] = true
+	var deltas: Dictionary = {}
+	var raw_d = ev.get("deltas", {})
+	if typeof(raw_d) == TYPE_DICTIONARY:
+		deltas = raw_d
+	if not deltas.is_empty():
+		apply_map_event_delta(deltas)
+	var aff = ev.get("affinity", {})
+	if typeof(aff) == TYPE_DICTIONARY and not (aff as Dictionary).is_empty():
+		apply_affinity_map(aff, false)
+	var title := str(ev.get("title", ""))
+	if title != "":
+		note_year_event(title)
+	ev["skipped"] = false
+	ev["place"] = place_id
+	state_changed.emit()
+	return ev
+
+
+func _roll_roaming_map_event() -> void:
+	## About one in three seasons, a place that has not fired yet offers a small beat.
+	last_roaming_event = {}
+	if _event_rng.randf() >= 0.34:
+		return
+	var open: Array[String] = []
+	for pid in MapEvents.PLACE_IDS:
+		if map_place_event_ready(pid):
+			open.append(pid)
+	if open.is_empty():
+		return
+	var place_id: String = open[_event_rng.randi_range(0, open.size() - 1)]
+	var ev := trigger_place_event(place_id, _event_rng, false, false)
+	if bool(ev.get("skipped", true)):
+		return
+	ev["place_name"] = str(Activities.PLACE_NAMES.get(place_id, place_id))
+	last_roaming_event = ev
+
+
+func reset_npc_affinity() -> void:
+	npc_affinity = TownNpcs.starting_affinity()
+
+
+func apply_affinity_map(bump: Dictionary, emit_now: bool = true) -> void:
+	if bump.is_empty():
+		return
+	if npc_affinity.is_empty():
+		reset_npc_affinity()
+	for k in bump.keys():
+		var id := str(k)
+		if not TownNpcs.has_id(id):
+			continue
+		var cur := int(npc_affinity.get(id, 0))
+		npc_affinity[id] = clampi(cur + int(bump[k]), 0, 100)
+	if emit_now:
+		state_changed.emit()
+
+
+func _load_npc_affinity(raw) -> void:
+	if typeof(raw) != TYPE_DICTIONARY:
+		reset_npc_affinity()
+		return
+	npc_affinity = {}
+	for d in TownNpcs.defs():
+		var id := str(d.get("id", ""))
+		npc_affinity[id] = clampi(int(raw.get(id, d.get("start", 0))), 0, 100)
+
+
+func _dict_array_dup(src: Array) -> Array:
+	var out: Array = []
+	for item in src:
+		if typeof(item) == TYPE_DICTIONARY:
+			out.append((item as Dictionary).duplicate(true))
+		else:
+			out.append(item)
+	return out
+
+
+func _parse_dict_array(raw) -> Array:
+	var out: Array = []
+	if typeof(raw) != TYPE_ARRAY:
+		return out
+	for item in raw:
+		if typeof(item) == TYPE_DICTIONARY:
+			out.append((item as Dictionary).duplicate(true))
+	return out
 
 
 func _save_path(slot: int) -> String:
@@ -491,7 +724,68 @@ func has_save(slot: int = 0) -> bool:
 	return FileAccess.file_exists(_save_path(slot))
 
 
+func slot_title(slot: int) -> String:
+	return SLOT_TITLES[clampi(slot, 0, SLOT_TITLES.size() - 1)]
+
+
+func peek_save(slot: int) -> Dictionary:
+	var path := _save_path(slot)
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var text := f.get_as_text()
+	f.close()
+	var data = JSON.parse_string(text)
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	return data
+
+
+func save_slot_preview(slot: int) -> Dictionary:
+	var data := peek_save(slot)
+	if data.is_empty():
+		return {
+			"exists": false,
+			"slot": slot,
+			"title": slot_title(slot),
+			"detail": "尚未寫下",
+			"year": 0,
+			"season": 0,
+			"album_count": 0,
+		}
+	var y := int(data.get("year", 1))
+	var s := int(data.get("season", 0))
+	var name := str(data.get("save_name", ""))
+	if name == "":
+		name = slot_title(slot)
+	var album_raw = data.get("album", [])
+	var album_n := 0
+	if typeof(album_raw) == TYPE_ARRAY:
+		album_n = album_raw.size()
+	return {
+		"exists": true,
+		"slot": slot,
+		"title": name,
+		"detail": "第 %d 年 · %s · %d 歲" % [y, GameConfig.season_name(s), GameConfig.age_for_year(y)],
+		"year": y,
+		"season": s,
+		"album_count": album_n,
+	}
+
+
+func browse_album_from_slot(slot: int) -> bool:
+	var data := peek_save(slot)
+	if data.is_empty():
+		return false
+	album_browse = _parse_dict_array(data.get("album", []))
+	album_return_scene = "res://scenes/title.tscn"
+	return not album_browse.is_empty()
+
+
 func save_game(slot: int = 0) -> bool:
+	save_name = slot_title(slot)
 	var path := _save_path(slot)
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:

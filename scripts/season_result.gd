@@ -7,6 +7,8 @@ var _still: TextureRect
 var _skip_btn: Button
 var _main_root: CenterContainer
 var _showing_media: bool = false
+var _vignette_layer: CanvasLayer
+var _showing_vignette: bool = false
 
 
 func _ready() -> void:
@@ -64,6 +66,16 @@ func _ready() -> void:
 	UiStyle.apply_label(act_lbl, 15)
 	v.add_child(act_lbl)
 
+	if not GameState.last_vignettes.is_empty():
+		var hi := ActivityScenes.highlight_index(GameState.last_vignettes)
+		if hi >= 0 and hi < GameState.last_vignettes.size():
+			var hv: Dictionary = GameState.last_vignettes[hi]
+			var story := Label.new()
+			story.text = "手帳最亮的一頁：%s" % str(hv.get("title", ""))
+			story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			UiStyle.apply_label(story, 15)
+			v.add_child(story)
+
 	if not ev.is_empty():
 		var ev_title := Label.new()
 		ev_title.text = "☁ %s" % str(ev.get("title", "小鎮小事"))
@@ -94,6 +106,27 @@ func _ready() -> void:
 				thumb.texture = tex
 				v.add_child(thumb)
 
+	var roam: Dictionary = GameState.last_roaming_event
+	if not roam.is_empty() and not bool(roam.get("skipped", false)):
+		var roam_title := Label.new()
+		roam_title.text = "路上遇見 · %s · %s" % [str(roam.get("place_name", "")), str(roam.get("title", ""))]
+		roam_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(roam_title, 18)
+		v.add_child(roam_title)
+		var roam_body := Label.new()
+		roam_body.text = str(roam.get("body", ""))
+		roam_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(roam_body, 15, true)
+		v.add_child(roam_body)
+		var roam_d = roam.get("deltas", {})
+		if typeof(roam_d) == TYPE_DICTIONARY:
+			var roam_line := MapEvents.format_delta_line(roam_d)
+			if roam_line != "":
+				var roam_lbl := Label.new()
+				roam_lbl.text = roam_line
+				UiStyle.apply_label(roam_lbl, 14)
+				v.add_child(roam_lbl)
+
 	var delta_lbl := Label.new()
 	delta_lbl.text = _format_deltas(d)
 	delta_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -109,6 +142,14 @@ func _ready() -> void:
 	UiStyle.apply_label(now, 14, true)
 	v.add_child(now)
 
+	var aff_note := str(d.get("affinity_note", ""))
+	if aff_note != "":
+		var aff_lbl := Label.new()
+		aff_lbl.text = aff_note
+		aff_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(aff_lbl, 15)
+		v.add_child(aff_lbl)
+
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 6)
 	v.add_child(spacer)
@@ -119,12 +160,21 @@ func _ready() -> void:
 	cont.pressed.connect(_on_continue)
 	v.add_child(cont)
 
-	# Media overlay first when event has still/video
+	var has_vig := not GameState.last_vignettes.is_empty()
+	if has_vig:
+		_build_vignette_layer()
+
+	# Media first, then activity vignettes, then the number card.
 	if SeasonEvents.has_media(ev):
 		_build_media_layer(ev)
 		_main_root.visible = false
+		if _vignette_layer:
+			_vignette_layer.visible = false
 		_showing_media = true
 		_show_event_media(ev)
+	elif has_vig:
+		_main_root.visible = false
+		_showing_vignette = true
 
 
 func _load_tex(path: String) -> Texture2D:
@@ -241,8 +291,161 @@ func _dismiss_media() -> void:
 		_video.stop()
 	if _media_layer:
 		_media_layer.visible = false
-	_main_root.visible = true
 	_showing_media = false
+	if _vignette_layer and not GameState.last_vignettes.is_empty():
+		_vignette_layer.visible = true
+		_showing_vignette = true
+		_main_root.visible = false
+	else:
+		_main_root.visible = true
+
+
+func _dismiss_vignette() -> void:
+	if _vignette_layer:
+		_vignette_layer.visible = false
+	_showing_vignette = false
+	_main_root.visible = true
+
+
+func _build_vignette_layer() -> void:
+	var vignettes: Array = GameState.last_vignettes
+	var hi := ActivityScenes.highlight_index(vignettes)
+
+	_vignette_layer = CanvasLayer.new()
+	_vignette_layer.layer = 30
+	add_child(_vignette_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.55, 0.25, 0.35, 0.28)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_vignette_layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_vignette_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(860, 620)
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+	center.add_child(panel)
+
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 8)
+	panel.add_child(outer)
+
+	var title := Label.new()
+	title.text = "本季小過場"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(title, 26)
+	outer.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "三個月的日子，先讀成故事，再看數字。"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(sub, 14, true)
+	outer.add_child(sub)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(800, 460)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+
+	var list := VBoxContainer.new()
+	list.custom_minimum_size = Vector2(780, 0)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 10)
+	scroll.add_child(list)
+
+	if hi >= 0 and hi < vignettes.size() and typeof(vignettes[hi]) == TYPE_DICTIONARY:
+		list.add_child(_vignette_card(vignettes[hi], true))
+
+	var others := 0
+	for i in range(vignettes.size()):
+		if i == hi or typeof(vignettes[i]) != TYPE_DICTIONARY:
+			continue
+		others += 1
+	if others > 0:
+		var more := Label.new()
+		more.text = "另外的月份"
+		UiStyle.apply_label(more, 15, true)
+		list.add_child(more)
+		for i in range(vignettes.size()):
+			if i == hi or typeof(vignettes[i]) != TYPE_DICTIONARY:
+				continue
+			list.add_child(_vignette_card(vignettes[i], false))
+
+	var next := Button.new()
+	next.text = "翻開結算 ♡"
+	UiStyle.apply_button(next, true)
+	next.pressed.connect(_dismiss_vignette)
+	outer.add_child(next)
+
+
+func _vignette_card(v: Dictionary, highlighted: bool) -> PanelContainer:
+	var card := PanelContainer.new()
+	var fill := Color("FFF0F6") if highlighted else Color("FFF8FB")
+	var border := Color("F090A8") if highlighted else Color("F5C8D4")
+	var style := UiStyle.panel_style(fill, border, 16)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	card.add_theme_stylebox_override("panel", style)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	card.add_child(row)
+
+	var art = _vignette_art(v, highlighted)
+	if art != null:
+		row.add_child(art)
+
+	var text_col := VBoxContainer.new()
+	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_col.add_theme_constant_override("separation", 4)
+	row.add_child(text_col)
+
+	var month := Label.new()
+	var act_name := str(v.get("activity_name", ""))
+	var month_label := str(v.get("month_label", ""))
+	month.text = "%s · %s" % [month_label, act_name] if act_name != "" else month_label
+	UiStyle.apply_label(month, 13, true)
+	text_col.add_child(month)
+
+	var cap := Label.new()
+	cap.text = str(v.get("title", "小鎮小事"))
+	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(cap, 20 if highlighted else 16)
+	text_col.add_child(cap)
+
+	var body := Label.new()
+	body.text = str(v.get("body", ""))
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(body, 16 if highlighted else 14, not highlighted)
+	text_col.add_child(body)
+	return card
+
+
+func _vignette_art(v: Dictionary, highlighted: bool):
+	var path := ""
+	var still_id := str(v.get("still", ""))
+	if still_id != "":
+		path = GameConfig.event_still_path(still_id)
+	if path == "":
+		path = SeasonEvents.sticker_path(str(v.get("sticker", "")))
+	var tex := _load_tex(path)
+	if tex == null:
+		return null
+	var stick := TextureRect.new()
+	var side := 120 if highlighted else 72
+	stick.custom_minimum_size = Vector2(side, side + (36 if highlighted else 12))
+	stick.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	stick.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stick.texture = tex
+	return stick
 
 
 func _format_event_deltas(ed: Dictionary) -> String:
@@ -293,6 +496,9 @@ func _format_deltas(d: Dictionary) -> String:
 func _on_continue() -> void:
 	if _showing_media:
 		_dismiss_media()
+		return
+	if _showing_vignette:
+		_dismiss_vignette()
 		return
 	var next := GameState.advance_after_season()
 	if next == "year_review":

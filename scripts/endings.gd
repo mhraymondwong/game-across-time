@@ -25,6 +25,8 @@ static func all() -> Array:
 			"summary": "她選擇留在身邊照顧家人與鄰居。日子平凡，卻沒有遺憾。"},
 		{"id": "wanderer", "name": "行李裡的地圖", "priority": 65,
 			"summary": "她收拾背包去遠方追夢，約定每個季節寄一張明信片回來。你把明信片貼滿廚房牆。"},
+		{"id": "town_bond", "name": "被記住的名字", "priority": 20,
+			"summary": "她沒有急著遠走。小鎮裡有人叫得出她的名字，十二年就這樣變得具體。"},
 		{"id": "ordinary_happy", "name": "普通而確實的幸福", "priority": 10,
 			"summary": "沒有轟轟烈烈的頭銜。她有工作、有朋友、有你。十二年，夠了。"},
 	]
@@ -35,7 +37,14 @@ static func evaluate(state: Node) -> Dictionary:
 	list.sort_custom(func(a, b): return int(a["priority"]) > int(b["priority"]))
 	for e in list:
 		if _matches(str(e["id"]), state):
-			return e
+			var chosen: Dictionary = (e as Dictionary).duplicate(true)
+			if str(chosen.get("id", "")) == "town_bond":
+				chosen["summary"] = TownNpcs.ending_summary(state)
+			else:
+				var aside := TownNpcs.ending_aside(state)
+				if aside != "":
+					chosen["summary"] = str(chosen.get("summary", "")) + aside
+			return chosen
 	return list[-1]
 
 
@@ -61,6 +70,9 @@ static func _matches(id: String, s: Node) -> bool:
 			return int(s.morals) >= 65 and int(s.social) >= 45
 		"wanderer":
 			return int(s.charm) >= 50 and int(s.stamina) >= 50 and int(s.social) >= 40 and int(s.cash) >= 3000
+		"town_bond":
+			var top := TownNpcs.highest(s)
+			return int(top.get("value", 0)) >= 68 and int(s.mood) >= 30 and int(s.stamina) >= 25
 		"ordinary_happy":
 			return true
 		_:
