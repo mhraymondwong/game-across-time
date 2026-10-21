@@ -231,3 +231,10 @@
 - `scripts/capture_title.gd` → `shots/07_title_diary.png`
 
 **狀態**：v0.8 Phase 8；smoke 覆蓋 `title_diary_cover.jpg`、`title.gd`／`title.tscn` 載入。
+
+## 17. 活動小過場（feat-A）
+
+- `scripts/activity_scenes.gd`：每個活動 id 有標題＋兩至四句港台式小鎮口吻；`notable` 標記值得放大的月份；貼圖沿用 `assets/weather/`，必要時可填 `still` 指向 `assets/events/`
+- `GameState.resolve_season` 在三個月結算後寫入 `last_vignettes`（含月份標籤與實際採用的活動名），並隨存檔
+- `season_result`：若有海灘／上山等媒體，仍先播；接著一頁「本季小過場」——一則放大＋其餘月份全文摘要——再進入數字結算。結算卡保留「手帳最亮的一頁」
+

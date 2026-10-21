@@ -25,6 +25,8 @@ var last_deltas: Dictionary = {}
 var last_activity_names: Array[String] = []
 ## Last seasonal weather / festival event (title, body, sticker, deltas)
 var last_season_event: Dictionary = {}
+## One vignette per scheduled month (title, body, sticker, notable…)
+var last_vignettes: Array = []
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var flags: Dictionary = {}
@@ -61,6 +63,7 @@ func begin_new_game() -> void:
 	last_deltas = {}
 	last_activity_names = []
 	last_season_event = {}
+	last_vignettes = []
 	_event_rng.randomize()
 	flags.clear()
 	months_played = 0
@@ -207,6 +210,7 @@ func apply_map_event_delta(delta: Dictionary) -> void:
 func resolve_season() -> Dictionary:
 	var before := get_stats_dict()
 	last_activity_names = []
+	last_vignettes = []
 	var month_logs: Array = []
 	for i in range(GameConfig.MONTHS_PER_SEASON):
 		var id: String = season_schedule[i] if i < season_schedule.size() else ""
@@ -215,6 +219,11 @@ func resolve_season() -> Dictionary:
 		var d := apply_activity(id)
 		last_activity_names.append(str(d.get("name", id)))
 		month_logs.append(d)
+		var vig := ActivityScenes.get_vignette(id, season)
+		vig["month_index"] = i
+		vig["month_label"] = GameConfig.MONTH_LABELS[i] if i < GameConfig.MONTH_LABELS.size() else "這個月"
+		vig["activity_name"] = str(d.get("name", id))
+		last_vignettes.append(vig)
 
 	# Seasonal weather / festival event (~55% chance of themed event, else light beat)
 	var ev: Dictionary = SeasonEvents.roll_event(season, _event_rng, 0.55)
@@ -231,6 +240,7 @@ func resolve_season() -> Dictionary:
 	totals["activities"] = last_activity_names.duplicate()
 	totals["month_logs"] = month_logs
 	totals["event"] = last_season_event.duplicate(true)
+	totals["vignettes"] = _dict_array_dup(last_vignettes)
 	last_deltas = totals
 	season_resolved.emit(totals)
 	return totals
@@ -424,6 +434,7 @@ func to_dict() -> Dictionary:
 		"last_deltas": last_deltas.duplicate(true) if typeof(last_deltas) == TYPE_DICTIONARY else {},
 		"last_activity_names": names,
 		"last_season_event": last_season_event.duplicate(true) if typeof(last_season_event) == TYPE_DICTIONARY else {},
+		"last_vignettes": _dict_array_dup(last_vignettes),
 		"year_start_stats": year_start_stats.duplicate(true) if typeof(year_start_stats) == TYPE_DICTIONARY else {},
 		"year_activity_names": year_activity_names.duplicate(),
 		"year_event_titles": year_event_titles.duplicate(),
@@ -465,6 +476,7 @@ func from_dict(d: Dictionary) -> void:
 			last_activity_names.append(str(n))
 	var lse = d.get("last_season_event", {})
 	last_season_event = lse.duplicate(true) if typeof(lse) == TYPE_DICTIONARY else {}
+	last_vignettes = _parse_dict_array(d.get("last_vignettes", []))
 	var yss = d.get("year_start_stats", {})
 	year_start_stats = yss.duplicate(true) if typeof(yss) == TYPE_DICTIONARY else {}
 	year_activity_names = []
@@ -481,6 +493,26 @@ func from_dict(d: Dictionary) -> void:
 	last_year_review = lyr.duplicate(true) if typeof(lyr) == TYPE_DICTIONARY else {}
 	pending_ending_after_review = bool(d.get("pending_ending_after_review", false))
 	state_changed.emit()
+
+
+func _dict_array_dup(src: Array) -> Array:
+	var out: Array = []
+	for item in src:
+		if typeof(item) == TYPE_DICTIONARY:
+			out.append((item as Dictionary).duplicate(true))
+		else:
+			out.append(item)
+	return out
+
+
+func _parse_dict_array(raw) -> Array:
+	var out: Array = []
+	if typeof(raw) != TYPE_ARRAY:
+		return out
+	for item in raw:
+		if typeof(item) == TYPE_DICTIONARY:
+			out.append((item as Dictionary).duplicate(true))
+	return out
 
 
 func _save_path(slot: int) -> String:
