@@ -17,8 +17,9 @@
 *.bak
 shots/playtest/
 
-# Published Godot 4.7.2 HTML5 build for Cloudflare Workers Static Assets
-# (empty Build command + npx wrangler deploy). Recreate with scripts/export_web.sh.
+# Published Godot 4.7.2 HTML5 build. Live host is GitHub Pages
+# (.github/workflows/deploy-pages.yml). Recreate with scripts/export_web.sh.
+# Cloudflare cannot host index.pck / index.wasm (25 MiB per-file limit).
 /build/*
 !/build/web/
 !/build/web/**

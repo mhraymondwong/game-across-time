@@ -30,16 +30,22 @@ godot --headless --path . --script res://scripts/smoke_test.gd
 
 小鎮地圖可點地點查看說明（第一版 stub）。
 
-## 網頁匯出與 Cloudflare
+## 網頁版（GitHub Pages）
 
-Godot 要先匯出成 HTML5。Cloudflare Workers／Pages 只托管 `build/web` 的靜態檔，不會在伺服器上跑遊戲。
+正式站是 GitHub Pages：<https://mhraymondwong.github.io/game-across-time/>
+
+`build/web` 已提交（Godot 4.7.2、單執行緒 HTML5）。推上 `main` 時，`.github/workflows/deploy-pages.yml` 會把這個目錄發佈到 Pages。不需要 Cloudflare secret。
+
+Cloudflare Workers／Pages 的單一檔案上限是 **25 MiB**。`index.pck`（約 80 MiB）與 `index.wasm`（約 38 MiB）都超過上限，所以 **不能** 部署到 Cloudflare。`wrangler.toml` 與 [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) 只留作選用／歷史說明。
+
+遊戲在子路徑 `/game-across-time/`。匯出的 `index.html` 使用相對網址。GitHub Pages 會把沒有結尾斜線的網址轉到 `.../game-across-time/`，相對路徑就會落在這個目錄，因此不必加 `<base href>`，也不必為了 Pages 重新匯出。
+
+改遊戲後要更新網站：在本機重新匯出並提交 `build/web`，再推上 `main`。`export-web.yml` 仍會在 CI 匯出並上傳 artifact，但那個 artifact 不會自動變成 Pages 站。
 
 ```bash
 ./scripts/export_web.sh
-npx wrangler pages dev build/web
+python3 -m http.server -d build/web 8080
 ```
-
-推上 `main` 時，GitHub Actions 會用 Godot 4.7.2 匯出並上傳 artifact。還沒設定 Cloudflare secret 也不會讓該 workflow 失敗。之後要接 Dashboard、`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`、Workers 或 Pages，見 [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)。
 
 存檔在瀏覽器本機（`user://` → IndexedDB），不會跟到別的裝置。第一次開啟要下載 `.wasm` 與 `.pck`，體積會比較大。
 
