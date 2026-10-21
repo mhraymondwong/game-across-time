@@ -1,7 +1,7 @@
 .godot/
 *.translation
 .import/
-export_presets.cfg
+# Web preset is tracked (export_presets.cfg). Do not put encryption keys in it.
 *.pck
 *.exe
 *.apk
@@ -16,3 +16,15 @@ export_presets.cfg
 *.bak_regen
 *.bak
 shots/playtest/
+
+# HTML5 export (wasm/pck/js). scripts/export_web.sh and CI recreate build/web.
+# Keep the placeholder so the output path exists in git.
+/build/*
+!/build/web/
+/build/web/*
+!/build/web/.gitkeep
+
+# Local Cloudflare / npm caches
+.wrangler/
+node_modules/
+.dev.vars

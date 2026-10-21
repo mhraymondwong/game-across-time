@@ -1,0 +1,2 @@
+# HTML5 export target. scripts/export_web.sh writes index.html, .wasm, .pck, and .js here.
+# Those artifacts are gitignored. Cloudflare and GitHub Actions produce them; do not commit them.
