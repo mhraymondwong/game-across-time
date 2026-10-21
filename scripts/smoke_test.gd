@@ -1126,6 +1126,95 @@ func _run() -> void:
 	if phase11_ok:
 		print("[smoke] name + confide OK")
 
+	var phase12_ok := true
+	if GrowthPath.level_for_xp(0) != 0 or GrowthPath.level_for_xp(1) != 1 or GrowthPath.level_for_xp(2) != 1:
+		printerr("[smoke] FAIL skill level low xp")
+		phase12_ok = false
+	if GrowthPath.level_for_xp(3) != 2 or GrowthPath.level_for_xp(6) != 3 or GrowthPath.level_for_xp(20) != 3:
+		printerr("[smoke] FAIL skill level high xp")
+		phase12_ok = false
+	gs.begin_new_game()
+	gs.year = 6
+	var piano_av6: Dictionary = Activities.availability("study_piano", gs)
+	if bool(piano_av6.get("ok", true)):
+		printerr("[smoke] FAIL piano should wait for year 7")
+		phase12_ok = false
+	gs.apply_activity("study_piano")
+	GrowthPath.grant(gs, "study_piano")
+	if GrowthPath.xp_of(gs, "piano") != 0 or GrowthPath.points_of(gs, "art") != 0:
+		printerr("[smoke] FAIL elementary months granted skills")
+		phase12_ok = false
+	gs.year = 7
+	var piano_av7: Dictionary = Activities.availability("study_piano", gs)
+	var lang_av: Dictionary = Activities.availability("study_language", gs)
+	var code_av: Dictionary = Activities.availability("study_code", gs)
+	if not bool(piano_av7.get("ok", false)) or not bool(lang_av.get("ok", false)) or not bool(code_av.get("ok", false)):
+		printerr("[smoke] FAIL year 7 classes %s %s %s" % [str(piano_av7), str(lang_av), str(code_av)])
+		phase12_ok = false
+	gs.apply_activity("study_piano")
+	gs.apply_activity("study_piano")
+	if GrowthPath.xp_of(gs, "piano") != 4 or GrowthPath.level_of(gs, "piano") != 2:
+		printerr("[smoke] FAIL piano xp/level %d/%d" % [GrowthPath.xp_of(gs, "piano"), GrowthPath.level_of(gs, "piano")])
+		phase12_ok = false
+	elif GrowthPath.points_of(gs, "art") != 4:
+		printerr("[smoke] FAIL art tag")
+		phase12_ok = false
+	elif str(gs.education_path) != "undecided":
+		printerr("[smoke] FAIL education_path default")
+		phase12_ok = false
+	else:
+		print("[smoke] middle-school skills OK")
+	gs.education_path = "university"
+	if not gs.save_game(0):
+		printerr("[smoke] FAIL skill save")
+		phase12_ok = false
+	gs.begin_new_game()
+	if GrowthPath.xp_of(gs, "piano") != 0 or str(gs.education_path) != "undecided":
+		printerr("[smoke] FAIL new game did not clear skills")
+		phase12_ok = false
+	if not gs.load_game(0) or GrowthPath.xp_of(gs, "piano") != 4 or GrowthPath.points_of(gs, "art") != 4:
+		printerr("[smoke] FAIL skill load")
+		phase12_ok = false
+	elif str(gs.education_path) != "university":
+		printerr("[smoke] FAIL education_path roundtrip")
+		phase12_ok = false
+	else:
+		print("[smoke] skill save/load OK")
+	gs.delete_save(0)
+
+	gs.begin_new_game()
+	gs.academia = 70
+	gs.morals = 55
+	gs.stamina = 45
+	gs.social = 55
+	gs.charm = 30
+	gs.mood = 50
+	gs.cash = 100
+	var plain_end: Dictionary = Endings.evaluate(gs)
+	if str(plain_end.get("id", "")) != "doctor":
+		printerr("[smoke] FAIL unbiased ending %s" % str(plain_end.get("id", "")))
+		phase12_ok = false
+	gs.skill_xp["speech"] = 6
+	gs.interest_points["letters"] = 8
+	if GrowthPath.ending_bonus("teacher", gs) != 6 or GrowthPath.ending_bonus("doctor", gs) != 0:
+		printerr("[smoke] FAIL ending bonus teacher %d doctor %d" % [GrowthPath.ending_bonus("teacher", gs), GrowthPath.ending_bonus("doctor", gs)])
+		phase12_ok = false
+	var biased_end: Dictionary = Endings.evaluate(gs)
+	if str(biased_end.get("id", "")) != "teacher":
+		printerr("[smoke] FAIL tag bias ending %s" % str(biased_end.get("id", "")))
+		phase12_ok = false
+	else:
+		print("[smoke] ending tag bias OK")
+	var growth_hub_src := FileAccess.get_file_as_string("res://scripts/home_hub.gd")
+	if not growth_hub_src.contains("翻開專長") or not growth_hub_src.contains("growth_tutorial_done"):
+		printerr("[smoke] FAIL hub growth UI")
+		phase12_ok = false
+	if load("res://scripts/growth_path.gd") == null:
+		printerr("[smoke] FAIL growth_path load")
+		phase12_ok = false
+	if phase12_ok:
+		print("[smoke] skills + tags OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -1162,7 +1251,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false

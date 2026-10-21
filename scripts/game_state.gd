@@ -39,6 +39,11 @@ var save_name: String = ""
 ## Chosen on the title screen before a new game. Session-only: not written to saves.
 var wants_new_game_name: bool = false
 var daughter_name: String = "小悠"
+## Skill id -> XP. Levels are derived. Interest tag id -> points.
+## education_path is a later adulthood hook; this build never opens a choice UI.
+var skill_xp: Dictionary = {}
+var interest_points: Dictionary = {}
+var education_path: String = "undecided"
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 const DEFAULT_DAUGHTER_NAME := "小悠"
@@ -96,6 +101,9 @@ func begin_new_game(given_name: String = "") -> void:
 	_event_rng.randomize()
 	flags.clear()
 	flags["mom_warmth"] = 70
+	skill_xp = {}
+	interest_points = {}
+	education_path = "undecided"
 	reset_npc_affinity()
 	months_played = 0
 	is_game_over = false
@@ -225,6 +233,7 @@ func apply_activity(activity_id: String) -> Dictionary:
 	var bump := TownNpcs.affinity_for_activity(aid)
 	if not bump.is_empty():
 		apply_affinity_map(bump, false)
+	GrowthPath.grant(self, aid)
 	var disp := str(delta.get("name", activity_id))
 	if disp != "":
 		year_activity_names.append(disp)
@@ -520,6 +529,9 @@ func to_dict() -> Dictionary:
 		"album": _dict_array_dup(album),
 		"save_name": save_name,
 		"daughter_name": daughter_display_name(),
+		"skill_xp": skill_xp.duplicate(),
+		"interest_points": interest_points.duplicate(),
+		"education_path": education_path,
 	}
 
 
@@ -585,6 +597,10 @@ func from_dict(d: Dictionary) -> void:
 	else:
 		daughter_name = DEFAULT_DAUGHTER_NAME
 	wants_new_game_name = false
+	skill_xp = _int_map(d.get("skill_xp", {}), true)
+	interest_points = _int_map(d.get("interest_points", {}), false)
+	var edu := str(d.get("education_path", "")).strip_edges()
+	education_path = edu if edu != "" else "undecided"
 	state_changed.emit()
 
 
@@ -755,6 +771,19 @@ func _dict_array_dup(src: Array) -> Array:
 			out.append((item as Dictionary).duplicate(true))
 		else:
 			out.append(item)
+	return out
+
+
+func _int_map(raw, skills_map: bool) -> Dictionary:
+	var out := {}
+	if typeof(raw) != TYPE_DICTIONARY:
+		return out
+	for key in raw:
+		var id := str(key)
+		var known := GrowthPath.is_skill(id) if skills_map else GrowthPath.is_tag(id)
+		if not known:
+			continue
+		out[id] = maxi(0, int(raw[key]))
 	return out
 
 

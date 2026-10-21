@@ -52,6 +52,11 @@ var _travel_hint: Label
 var _confide_popup: PanelContainer
 var _confide_box: VBoxContainer
 var _confide_offer: Dictionary = {}
+var _growth_lbl: Label
+var _growth_btn: Button
+var _growth_popup: PanelContainer
+var _growth_box: VBoxContainer
+var _growth_layer: CanvasLayer
 
 ## Approximate pin positions on 1280x720 map (fractions of viewport)
 const PLACES := [
@@ -96,6 +101,7 @@ func _ready() -> void:
 	_map_rng.randomize()
 	_build_layout()
 	_refresh()
+	_maybe_growth_tutorial()
 	_maybe_confide()
 	GameState.state_changed.connect(_refresh)
 	resized.connect(_on_resized)
@@ -311,6 +317,21 @@ func _build_layout() -> void:
 	UiStyle.apply_label(_affinity_lbl, 13, true)
 	stats_col.add_child(_affinity_lbl)
 
+	_growth_lbl = Label.new()
+	_growth_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_growth_lbl.visible = false
+	UiStyle.apply_label(_growth_lbl, 13, true)
+	stats_col.add_child(_growth_lbl)
+
+	_growth_btn = Button.new()
+	_growth_btn.text = "翻開專長"
+	_growth_btn.visible = false
+	UiStyle.apply_soft_chip(_growth_btn, Color("FFE0C8"))
+	_growth_btn.add_theme_font_size_override("font_size", 14)
+	_growth_btn.custom_minimum_size = Vector2(0, 36)
+	_growth_btn.pressed.connect(_show_growth_panel)
+	stats_col.add_child(_growth_btn)
+
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 6)
 	stats_col.add_child(btn_row)
@@ -391,6 +412,10 @@ func _build_layout() -> void:
 	_confide_popup = _make_confide_popup()
 	_confide_popup.visible = false
 	_popup_layer.add_child(_confide_popup)
+
+	_growth_popup = _make_growth_popup()
+	_growth_popup.visible = false
+	_popup_layer.add_child(_growth_popup)
 
 	_save_popup = _make_save_popup()
 	_save_popup.visible = false
@@ -832,6 +857,7 @@ func _dismiss_tutorial() -> void:
 		_tutorial_layer.queue_free()
 		_tutorial_layer = null
 	_position_mom_card()
+	_maybe_growth_tutorial()
 	_maybe_confide()
 
 
@@ -910,6 +936,8 @@ func _hide_popups() -> void:
 		_npc_popup.visible = false
 	if _mom_popup:
 		_mom_popup.visible = false
+	if _growth_popup:
+		_growth_popup.visible = false
 	if _save_popup:
 		_save_popup.visible = false
 	var dim := _popup_layer.get_node_or_null("Dim")
@@ -1054,6 +1082,12 @@ func _refresh() -> void:
 	_cash_lbl.text = "家計  $%d" % s["cash"]
 	if _affinity_lbl:
 		_affinity_lbl.text = TownNpcs.hub_line(GameState)
+	var growth_open := GrowthPath.unlocked(GameState)
+	if _growth_lbl:
+		_growth_lbl.visible = growth_open
+		_growth_lbl.text = GrowthPath.drawer_line(GameState)
+	if _growth_btn:
+		_growth_btn.visible = growth_open
 	_refresh_slots_highlight()
 	if GameState.is_season_fully_scheduled():
 		_confirm_btn.text = "確認本季排程 → 結算"
@@ -1309,8 +1343,152 @@ func _mom_family_card() -> PanelContainer:
 	return card
 
 
+func _maybe_growth_tutorial() -> void:
+	if not GrowthPath.unlocked(GameState):
+		return
+	if bool(GameState.flags.get("growth_tutorial_done", false)):
+		return
+	if _growth_tutorial_open():
+		return
+	_growth_layer = CanvasLayer.new()
+	_growth_layer.layer = 14
+	add_child(_growth_layer)
+
+	var card := PanelContainer.new()
+	card.offset_left = 360
+	card.offset_top = 72
+	card.offset_right = 900
+	card.offset_bottom = 312
+	card.add_theme_stylebox_override("panel", UiStyle.panel_style(Color(1, 0.96, 0.97, 0.96), Color("F090A8"), 18))
+	_growth_layer.add_child(card)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+
+	var title := Label.new()
+	title.text = "國中的手帳"
+	UiStyle.apply_label(title, 20)
+	v.add_child(title)
+
+	for line in [
+		"專長會跟著相關的月份慢慢升級：鋼琴、外語、程式、繪畫、球類、烹飪、演講。",
+		"興趣也會累起來：藝術、理工、服務、文教、運動、商業。以後找工作時，會輕輕偏向她走得比較久的那些。",
+		"這一季可以排學鋼琴、外語班，或程式興趣班。手帳裡的「翻開專長」隨時能看。",
+	]:
+		var lbl := Label.new()
+		lbl.text = line
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(lbl, 14)
+		v.add_child(lbl)
+
+	var ok := Button.new()
+	ok.text = "知道了 ♡"
+	UiStyle.apply_button(ok, true)
+	ok.pressed.connect(_dismiss_growth_tutorial)
+	v.add_child(ok)
+
+
+func _growth_tutorial_open() -> bool:
+	return _growth_layer != null and is_instance_valid(_growth_layer)
+
+
+func _dismiss_growth_tutorial() -> void:
+	GameState.flags["growth_tutorial_done"] = true
+	if _growth_layer:
+		_growth_layer.queue_free()
+		_growth_layer = null
+	_maybe_confide()
+
+
+func _show_growth_panel() -> void:
+	if not GrowthPath.unlocked(GameState):
+		return
+	if _confide_popup != null and _confide_popup.visible:
+		return
+	_hide_popups()
+	_fill_growth_panel()
+	var dim := _popup_layer.get_node_or_null("Dim")
+	if dim:
+		dim.visible = true
+	_growth_popup.visible = true
+
+
+func _fill_growth_panel() -> void:
+	if _growth_box == null:
+		return
+	for node in _growth_box.get_children():
+		_growth_box.remove_child(node)
+		node.free()
+	for line in GrowthPath.skill_lines(GameState):
+		var row := Label.new()
+		row.text = line
+		UiStyle.apply_label(row, 16, line.ends_with("未學"))
+		_growth_box.add_child(row)
+	var tags := Label.new()
+	tags.text = GrowthPath.tag_line(GameState)
+	tags.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(tags, 15)
+	_growth_box.add_child(tags)
+	var bright := Label.new()
+	bright.text = GrowthPath.brightest_tag_line(GameState)
+	bright.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(bright, 14, true)
+	_growth_box.add_child(bright)
+
+
+func _make_growth_popup() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 460)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -270
+	panel.offset_right = 270
+	panel.offset_top = -250
+	panel.offset_bottom = 250
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(margin)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	margin.add_child(v)
+
+	var title := Label.new()
+	title.text = "專長與興趣"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(title, 24)
+	v.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "國中以後，每月的安排會慢慢寫進這一頁。"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(sub, 13, true)
+	v.add_child(sub)
+
+	_growth_box = VBoxContainer.new()
+	_growth_box.add_theme_constant_override("separation", 4)
+	_growth_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(_growth_box)
+
+	var close := Button.new()
+	close.text = "好的 ♡"
+	UiStyle.apply_button(close, false)
+	close.pressed.connect(_hide_popups)
+	v.add_child(close)
+	return panel
+
+
 func _maybe_confide() -> void:
-	if _tutorial_open():
+	if _tutorial_open() or _growth_tutorial_open():
 		return
 	if _confide_popup == null or _confide_popup.visible:
 		return
