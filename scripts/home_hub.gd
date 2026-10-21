@@ -52,7 +52,7 @@ const PLACES := [
 	{
 		"id": "school", "name": "學校", "pin": "res://assets/pins/school.png",
 		"pos": Vector2(0.55, 0.16), "color": Color("C9B8E8"),
-		"text": "小鎮小學／中學。鐘聲準時，操場邊有老榕樹。\n學習類活動多在這裡展開。"
+		"text": "小鎮小學／中學。鐘聲準時，操場邊有老榕樹。\n學習、校園園藝與小義工多在這裡展開。"
 	},
 	{
 		"id": "park", "name": "公園", "pin": "res://assets/pins/park.png",
@@ -62,12 +62,12 @@ const PLACES := [
 	{
 		"id": "shops", "name": "商店街", "pin": "res://assets/pins/shops.png",
 		"pos": Vector2(0.22, 0.34), "color": Color("F0D4A8"),
-		"text": "麵包店、文具行、制服店。週末人潮較多。\n打工與氣質類活動相關。"
+		"text": "麵包店、文具行、制服店。週末人潮較多。\n小時候可跟家人去市集幫忙；長大後才有打工。"
 	},
 	{
 		"id": "clinic", "name": "診所", "pin": "res://assets/pins/clinic.png",
 		"pos": Vector2(0.28, 0.18), "color": Color("B8D4E8"),
-		"text": "社區診所。王醫師認識鎮上每一個孩子。\n可安排健康檢查與運動。"
+		"text": "社區診所。王醫師認識鎮上每一個孩子。\n可安排健康檢查；年紀到了，也能來當暑期小義工。"
 	},
 	{
 		"id": "culture", "name": "文化中心", "pin": "res://assets/pins/culture.png",
