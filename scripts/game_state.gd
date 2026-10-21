@@ -30,6 +30,8 @@ var last_vignettes: Array = []
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var flags: Dictionary = {}
+## npc id -> affinity 0–100
+var npc_affinity: Dictionary = {}
 var months_played: int = 0
 var is_game_over: bool = false
 var final_ending: Dictionary = {}
@@ -66,6 +68,7 @@ func begin_new_game() -> void:
 	last_vignettes = []
 	_event_rng.randomize()
 	flags.clear()
+	reset_npc_affinity()
 	months_played = 0
 	is_game_over = false
 	final_ending = {}
@@ -160,6 +163,9 @@ func apply_activity(activity_id: String) -> Dictionary:
 	delta["name"] = str(def.get("name", activity_id))
 
 	_apply_delta(delta)
+	var bump := TownNpcs.affinity_for_activity(aid)
+	if not bump.is_empty():
+		apply_affinity_map(bump, false)
 	var disp := str(delta.get("name", activity_id))
 	if disp != "":
 		year_activity_names.append(disp)
@@ -229,6 +235,9 @@ func resolve_season() -> Dictionary:
 	var ev: Dictionary = SeasonEvents.roll_event(season, _event_rng, 0.55)
 	last_season_event = ev
 	SeasonEvents.apply_deltas_to_state(self, ev.get("deltas", {}))
+	var sev_bump := TownNpcs.affinity_for_season_event(str(ev.get("id", "")))
+	if not sev_bump.is_empty():
+		apply_affinity_map(sev_bump, false)
 	var ev_title := str(ev.get("title", ""))
 	if ev_title != "":
 		note_year_event(ev_title)
@@ -241,6 +250,7 @@ func resolve_season() -> Dictionary:
 	totals["month_logs"] = month_logs
 	totals["event"] = last_season_event.duplicate(true)
 	totals["vignettes"] = _dict_array_dup(last_vignettes)
+	totals["affinity_note"] = TownNpcs.season_note(self)
 	last_deltas = totals
 	season_resolved.emit(totals)
 	return totals
@@ -324,6 +334,9 @@ func _year_highlights() -> Array:
 		out.append("回憶・%s" % s2)
 		if out.size() >= 6:
 			break
+	var aff_line := TownNpcs.year_highlight(self)
+	if aff_line != "":
+		out.append(aff_line)
 	if out.is_empty():
 		out.append("平靜的一年，手帳裡也留下了淡淡的粉紅。")
 	return out
@@ -440,6 +453,7 @@ func to_dict() -> Dictionary:
 		"year_event_titles": year_event_titles.duplicate(),
 		"last_year_review": last_year_review.duplicate(true) if typeof(last_year_review) == TYPE_DICTIONARY else {},
 		"pending_ending_after_review": pending_ending_after_review,
+		"npc_affinity": npc_affinity.duplicate(),
 	}
 
 
@@ -492,7 +506,37 @@ func from_dict(d: Dictionary) -> void:
 	var lyr = d.get("last_year_review", {})
 	last_year_review = lyr.duplicate(true) if typeof(lyr) == TYPE_DICTIONARY else {}
 	pending_ending_after_review = bool(d.get("pending_ending_after_review", false))
+	_load_npc_affinity(d.get("npc_affinity", null))
 	state_changed.emit()
+
+
+func reset_npc_affinity() -> void:
+	npc_affinity = TownNpcs.starting_affinity()
+
+
+func apply_affinity_map(bump: Dictionary, emit_now: bool = true) -> void:
+	if bump.is_empty():
+		return
+	if npc_affinity.is_empty():
+		reset_npc_affinity()
+	for k in bump.keys():
+		var id := str(k)
+		if not TownNpcs.has_id(id):
+			continue
+		var cur := int(npc_affinity.get(id, 0))
+		npc_affinity[id] = clampi(cur + int(bump[k]), 0, 100)
+	if emit_now:
+		state_changed.emit()
+
+
+func _load_npc_affinity(raw) -> void:
+	if typeof(raw) != TYPE_DICTIONARY:
+		reset_npc_affinity()
+		return
+	npc_affinity = {}
+	for d in TownNpcs.defs():
+		var id := str(d.get("id", ""))
+		npc_affinity[id] = clampi(int(raw.get(id, d.get("start", 0))), 0, 100)
 
 
 func _dict_array_dup(src: Array) -> Array:

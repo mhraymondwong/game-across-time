@@ -121,6 +121,14 @@ func _ready() -> void:
 	UiStyle.apply_label(now, 14, true)
 	v.add_child(now)
 
+	var aff_note := str(d.get("affinity_note", ""))
+	if aff_note != "":
+		var aff_lbl := Label.new()
+		aff_lbl.text = aff_note
+		aff_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(aff_lbl, 15)
+		v.add_child(aff_lbl)
+
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 6)
 	v.add_child(spacer)

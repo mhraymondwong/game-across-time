@@ -31,6 +31,10 @@ var _activity_list: VBoxContainer
 var _girl: TextureRect
 var _save_btn: Button
 var _save_toast: Label
+var _npc_btn: Button
+var _affinity_lbl: Label
+var _npc_popup: PanelContainer
+var _npc_list: VBoxContainer
 var _map_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 ## Approximate pin positions on 1280x720 map (fractions of viewport)
@@ -274,13 +278,32 @@ func _build_layout() -> void:
 	UiStyle.apply_label(_cash_lbl, 16)
 	stats_col.add_child(_cash_lbl)
 
+	_affinity_lbl = Label.new()
+	_affinity_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(_affinity_lbl, 13, true)
+	stats_col.add_child(_affinity_lbl)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 6)
+	stats_col.add_child(btn_row)
+
+	_npc_btn = Button.new()
+	_npc_btn.text = "人際"
+	UiStyle.apply_soft_chip(_npc_btn, Color("FFD0E4"))
+	_npc_btn.add_theme_font_size_override("font_size", 14)
+	_npc_btn.custom_minimum_size = Vector2(0, 36)
+	_npc_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_npc_btn.pressed.connect(_show_npc_panel)
+	btn_row.add_child(_npc_btn)
+
 	_save_btn = Button.new()
 	_save_btn.text = "♡ 存檔"
 	UiStyle.apply_soft_chip(_save_btn, Color("FFD0E4"))
 	_save_btn.add_theme_font_size_override("font_size", 14)
 	_save_btn.custom_minimum_size = Vector2(0, 36)
+	_save_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_save_btn.pressed.connect(_on_save_pressed)
-	stats_col.add_child(_save_btn)
+	btn_row.add_child(_save_btn)
 
 	_save_toast = Label.new()
 	_save_toast.text = ""
@@ -319,6 +342,10 @@ func _build_layout() -> void:
 	_activity_popup = _make_activity_popup()
 	_activity_popup.visible = false
 	_popup_layer.add_child(_activity_popup)
+
+	_npc_popup = _make_npc_popup()
+	_npc_popup.visible = false
+	_popup_layer.add_child(_npc_popup)
 
 
 func _update_daughter_art() -> void:
@@ -573,6 +600,16 @@ func _show_place_popup(p: Dictionary) -> void:
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		UiStyle.apply_label(dl, 14)
 		_popup_body.add_child(dl)
+	var aff = ev.get("affinity", {})
+	if typeof(aff) == TYPE_DICTIONARY and not aff.is_empty():
+		GameState.apply_affinity_map(aff)
+		var aff_line := TownNpcs.format_bump_line(aff)
+		if aff_line != "":
+			var al := Label.new()
+			al.text = aff_line
+			al.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			UiStyle.apply_label(al, 14)
+			_popup_body.add_child(al)
 	var act_btn := Button.new()
 	act_btn.text = "在這裡安排活動"
 	UiStyle.apply_button(act_btn, false)
@@ -672,9 +709,101 @@ func _pick_activity(id: String) -> void:
 func _hide_popups() -> void:
 	_popup_panel.visible = false
 	_activity_popup.visible = false
+	if _npc_popup:
+		_npc_popup.visible = false
 	var dim := _popup_layer.get_node_or_null("Dim")
 	if dim:
 		dim.visible = false
+
+
+func _make_npc_popup() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 460)
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.anchor_top = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left = -260
+	panel.offset_right = 260
+	panel.offset_top = -240
+	panel.offset_bottom = 240
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+
+	var title := Label.new()
+	title.text = "人際"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(title, 24)
+	v.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "好感會跟著活動、地圖小事與季節，慢慢暖起來。"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(sub, 13, true)
+	v.add_child(sub)
+
+	_npc_list = VBoxContainer.new()
+	_npc_list.add_theme_constant_override("separation", 8)
+	_npc_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(_npc_list)
+
+	var close := Button.new()
+	close.text = "好的 ♡"
+	UiStyle.apply_button(close, true)
+	close.pressed.connect(_hide_popups)
+	v.add_child(close)
+	return panel
+
+
+func _show_npc_panel() -> void:
+	_hide_popups()
+	_popup_layer.get_node("Dim").visible = true
+	_rebuild_npc_list()
+	_npc_popup.visible = true
+
+
+func _rebuild_npc_list() -> void:
+	if _npc_list == null:
+		return
+	for c in _npc_list.get_children():
+		c.queue_free()
+	for d in TownNpcs.defs():
+		var id := str(d.get("id", ""))
+		var value := TownNpcs.value_of(GameState, id)
+		var card := PanelContainer.new()
+		var style := UiStyle.panel_style(Color("FFF0F6"), Color("F5C0D0"), 14)
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		style.content_margin_top = 8
+		style.content_margin_bottom = 8
+		card.add_theme_stylebox_override("panel", style)
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 2)
+		card.add_child(col)
+
+		var head := Label.new()
+		head.text = "%s　·　%s　·　%s" % [
+			str(d.get("name", "")), str(d.get("role", "")), str(d.get("place_name", ""))
+		]
+		head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(head, 16)
+		col.add_child(head)
+
+		var bio := Label.new()
+		bio.text = str(d.get("bio", ""))
+		bio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(bio, 13, true)
+		col.add_child(bio)
+
+		var hearts := Label.new()
+		hearts.text = "好感 %d　%s" % [value, TownNpcs.heart_row(value)]
+		UiStyle.apply_label(hearts, 15)
+		col.add_child(hearts)
+		_npc_list.add_child(card)
 
 
 func _on_dim_input(event: InputEvent) -> void:
@@ -719,6 +848,8 @@ func _refresh() -> void:
 		s["academia"], s["mood"],
 	]
 	_cash_lbl.text = "家計  $%d" % s["cash"]
+	if _affinity_lbl:
+		_affinity_lbl.text = TownNpcs.hub_line(GameState)
 	_refresh_slots_highlight()
 	if GameState.is_season_fully_scheduled():
 		_confirm_btn.text = "確認本季排程 → 結算"
