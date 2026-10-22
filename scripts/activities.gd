@@ -28,6 +28,10 @@ const CATEGORY_INTENSITY := {
 	"學習": 1,
 	"氣質": 1,
 	"打工": 2,
+	"戀愛": 0,
+	"進修": 1,
+	"成家": 0,
+	"工作": 1,
 }
 
 
@@ -42,6 +46,7 @@ static func all() -> Dictionary:
 			"cash": -600,
 			"mood": -2,
 			"intensity": 2,
+			"max_year": 12,
 		},
 		"study_library": {
 			"name": "圖書館自習",
@@ -51,6 +56,7 @@ static func all() -> Dictionary:
 			"cash": -50,
 			"mood": 0,
 			"intensity": 1,
+			"max_year": 12,
 		},
 		"study_arts": {
 			"name": "才藝課",
@@ -60,6 +66,7 @@ static func all() -> Dictionary:
 			"cash": -800,
 			"mood": 3,
 			"intensity": 1,
+			"max_year": 12,
 		},
 		"work_cafe": {
 			"name": "咖啡店打工",
@@ -70,6 +77,7 @@ static func all() -> Dictionary:
 			"mood": -1,
 			"intensity": 2,
 			"min_year": 10,
+			"max_year": 12,
 			"unlock_hint": "十五歲左右才適合咖啡店打工",
 		},
 		"work_store": {
@@ -81,6 +89,7 @@ static func all() -> Dictionary:
 			"mood": -3,
 			"intensity": 2,
 			"min_year": 11,
+			"max_year": 12,
 			"unlock_hint": "十六歲左右才能排便利店的班",
 		},
 		"work_tutor": {
@@ -93,6 +102,7 @@ static func all() -> Dictionary:
 			"intensity": 2,
 			"min_academia": 40,
 			"min_year": 11,
+			"max_year": 12,
 			"unlock_hint": "學識夠、十六歲左右才接得住家教",
 		},
 		"social_friends": {
@@ -182,6 +192,7 @@ static func all() -> Dictionary:
 			"intensity": 0,
 			"require_visit": "school",
 			"min_year": 1,
+			"max_year": 12,
 			"unlock_hint": "先去過學校，就可以加入校園園藝",
 		},
 		"school_library_helper": {
@@ -194,6 +205,7 @@ static func all() -> Dictionary:
 			"intensity": 0,
 			"require_visit": "school",
 			"min_year": 3,
+			"max_year": 12,
 			"unlock_hint": "去過學校，八歲左右可以當圖書館小義工",
 		},
 		"school_class_helper": {
@@ -206,6 +218,7 @@ static func all() -> Dictionary:
 			"intensity": 0,
 			"require_visit": "school",
 			"min_year": 2,
+			"max_year": 12,
 			"unlock_hint": "去過學校，七歲左右可以當班務小幫手",
 		},
 		"festival_helper": {
@@ -300,6 +313,7 @@ static func all() -> Dictionary:
 			"intensity": 1,
 			"require_visit": "clinic",
 			"min_year": 5,
+			"max_year": 12,
 			"min_morals": 35,
 			"unlock_hint": "拜訪過診所、道德夠，十歲左右可當小義工",
 		},
@@ -326,6 +340,7 @@ static func all() -> Dictionary:
 			"require_visit": "school",
 			"min_academia": 30,
 			"min_year": 3,
+			"max_year": 12,
 			"unlock_hint": "去過學校且學識達標",
 		},
 		"park_run": {
@@ -349,6 +364,7 @@ static func all() -> Dictionary:
 			"mood": 2,
 			"intensity": 1,
 			"min_year": 7,
+			"max_year": 12,
 			"unlock_hint": "國中以後可以排學鋼琴",
 		},
 		"study_language": {
@@ -360,6 +376,7 @@ static func all() -> Dictionary:
 			"mood": 1,
 			"intensity": 1,
 			"min_year": 7,
+			"max_year": 12,
 			"unlock_hint": "國中以後可以排外語班",
 		},
 		"study_code": {
@@ -371,6 +388,7 @@ static func all() -> Dictionary:
 			"mood": 2,
 			"intensity": 1,
 			"min_year": 7,
+			"max_year": 12,
 			"unlock_hint": "國中以後可以排程式興趣班",
 		},
 		"talent_showcase": {
@@ -382,8 +400,166 @@ static func all() -> Dictionary:
 			"mood": 5,
 			"intensity": 2,
 			"min_year": 7,
+			"max_year": 12,
 			"min_charm": 40,
 			"unlock_hint": "七年級起、魅力夠才適合上台",
+		},
+		# —— 成年自由格（第 13 年起）。平日工作另計，不佔這三格。 ——
+		"date_walk": {
+			"name": "黃昏散步",
+			"category": "戀愛",
+			"desc": "沒有特定的誰。只是把黃昏留給一個慢慢走近的人。",
+			"effects": {"social": 2, "charm": 1, "stamina": 1, "morals": 0, "academia": 0},
+			"cash": -200,
+			"mood": 4,
+			"intensity": 0,
+			"romance": 8,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後，每月可以留一格給靠近的人",
+		},
+		"date_letter": {
+			"name": "寫一封短短的信",
+			"category": "戀愛",
+			"desc": "信紙上不寫全名。把這一個月想說的話，慢慢寄出去。",
+			"effects": {"charm": 1, "academia": 1, "social": 1, "morals": 0, "stamina": 0},
+			"cash": -40,
+			"mood": 3,
+			"intensity": 0,
+			"romance": 6,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後，每月可以留一格給靠近的人",
+		},
+		"date_cook": {
+			"name": "一起準備晚餐",
+			"category": "戀愛",
+			"desc": "兩個人在廚房說很少的話。湯滾了，日子也暖一點。",
+			"effects": {"social": 2, "morals": 1, "stamina": -1, "charm": 1, "academia": 0},
+			"cash": -180,
+			"mood": 4,
+			"intensity": 0,
+			"romance": 7,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後，每月可以留一格給靠近的人",
+		},
+		"study_night": {
+			"name": "夜間進修",
+			"category": "進修",
+			"desc": "下班後的燈還亮著。她把白天沒看完的章節補上。",
+			"effects": {"academia": 4, "stamina": -3, "morals": 1, "social": 0, "charm": 0},
+			"cash": -400,
+			"mood": -1,
+			"intensity": 1,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後可以排夜間進修",
+		},
+		"study_license": {
+			"name": "準備一張證照",
+			"category": "進修",
+			"desc": "題目很多，她一張張摺好。考過了，工作會更穩一點。",
+			"effects": {"academia": 3, "morals": 1, "stamina": -2, "social": 0, "charm": 0},
+			"cash": -250,
+			"mood": 0,
+			"intensity": 1,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後可以準備證照",
+		},
+		"study_portfolio": {
+			"name": "整理作品集",
+			"category": "進修",
+			"desc": "舊塗鴉和新稿放在一起。她挑出願意給別人看的那幾頁。",
+			"effects": {"charm": 2, "academia": 2, "stamina": -1, "social": 0, "morals": 0},
+			"cash": -150,
+			"mood": 2,
+			"intensity": 1,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後可以整理作品集",
+		},
+		"family_meet": {
+			"name": "帶回家吃頓飯",
+			"category": "成家",
+			"desc": "多一雙筷子。沒有人把這頓飯說成典禮，湯還是家裡的味道。",
+			"effects": {"social": 2, "morals": 1, "charm": 0, "stamina": 0, "academia": 0},
+			"cash": -300,
+			"mood": 3,
+			"intensity": 0,
+			"romance": 4,
+			"family": 1,
+			"require_romance": 40,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "戀愛進度還淺，成家的事先放著",
+		},
+		"family_nest": {
+			"name": "布置以後的小房間",
+			"category": "成家",
+			"desc": "窗簾、桌子、一盞不太亮的燈。她問你這張椅子要不要留下。",
+			"effects": {"charm": 1, "morals": 1, "social": 1, "stamina": -1, "academia": 0},
+			"cash": -800,
+			"mood": 2,
+			"intensity": 0,
+			"romance": 2,
+			"family": 1,
+			"require_romance": 40,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "戀愛進度還淺，成家的事先放著",
+		},
+		"family_talk": {
+			"name": "談以後怎麼過日子",
+			"category": "成家",
+			"desc": "沒有期限。只是把「要不要住近一點」這句話，放在桌上。",
+			"effects": {"morals": 2, "social": 1, "charm": 0, "stamina": 0, "academia": 0},
+			"cash": 0,
+			"mood": 2,
+			"intensity": 0,
+			"romance": 3,
+			"family": 1,
+			"require_romance": 40,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "戀愛進度還淺，成家的事先放著",
+		},
+		"work_overtime": {
+			"name": "把工作做深一點",
+			"category": "工作",
+			"desc": "平日的班已經上完。這個月她多留一會兒，把一件事做到能放心。",
+			"effects": {"academia": 1, "morals": 1, "stamina": -4, "social": 0, "charm": 0},
+			"cash": 400,
+			"mood": -1,
+			"intensity": 2,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後可以把工作做深一點",
+		},
+		"work_colleagues": {
+			"name": "跟同事吃便飯",
+			"category": "工作",
+			"desc": "便當攤的位子很擠。她聽同事講家裡的事，也把自己的份量說少一點。",
+			"effects": {"social": 3, "charm": 1, "stamina": -1, "morals": 0, "academia": 0},
+			"cash": -180,
+			"mood": 2,
+			"intensity": 0,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後可以跟同事吃便飯",
+		},
+		"work_side": {
+			"name": "接一件小案子",
+			"category": "工作",
+			"desc": "店招、代筆、或一堂小課。不是離職，是把本事借出去一個月。",
+			"effects": {"charm": 1, "academia": 1, "stamina": -3, "social": 1, "morals": 0},
+			"cash": 600,
+			"mood": 1,
+			"intensity": 1,
+			"min_year": 13,
+			"adult_only": true,
+			"unlock_hint": "成年以後可以接一件小案子",
 		},
 	}
 
@@ -406,6 +582,38 @@ static func ids_by_category() -> Dictionary:
 		if not out.has(cat):
 			out[cat] = []
 		out[cat].append(id)
+	return out
+
+
+static func shown_in_picker(id: String, state: Node) -> bool:
+	var def := get_activity(id)
+	if def.is_empty():
+		return false
+	if bool(def.get("adult_only", false)) and int(state.year) < GameConfig.ADULT_START_YEAR:
+		return false
+	if def.has("max_year") and int(state.year) > int(def["max_year"]):
+		return false
+	return true
+
+
+static func ids_by_category_for(state: Node) -> Dictionary:
+	var grouped := {}
+	for id in all():
+		if not shown_in_picker(id, state):
+			continue
+		var cat: String = str(all()[id].get("category", ""))
+		if not grouped.has(cat):
+			grouped[cat] = []
+		grouped[cat].append(id)
+	if int(state.year) < GameConfig.ADULT_START_YEAR:
+		return grouped
+	var out := {}
+	for cat in ["戀愛", "進修", "成家", "工作", "休閒", "社交", "品格", "氣質", "學習", "打工"]:
+		if grouped.has(cat):
+			out[cat] = grouped[cat]
+	for cat in grouped:
+		if not out.has(cat):
+			out[cat] = grouped[cat]
 	return out
 
 
@@ -477,6 +685,13 @@ static func availability(id: String, state: Node) -> Dictionary:
 			if hint2 != "":
 				return {"ok": false, "reason": hint2}
 			return {"ok": false, "reason": "年紀還不夠（需 %d 歲）" % int(def["min_age"])}
+	if def.has("max_year") and int(state.year) > int(def["max_year"]):
+		return {"ok": false, "reason": "學生時期的安排，先留在相簿裡"}
+	if def.has("require_romance") and int(state.get("romance")) < int(def["require_romance"]):
+		var hint_rom := str(def.get("unlock_hint", ""))
+		if hint_rom != "":
+			return {"ok": false, "reason": hint_rom}
+		return {"ok": false, "reason": "戀愛進度還淺，成家的事先放著"}
 
 	# Soft stat floors
 	for sk in ["charm", "morals", "social", "stamina", "academia", "mood"]:

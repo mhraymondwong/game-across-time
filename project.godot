@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="時光裡的她"
-config/description="原創養成遊戲：父親與女兒在溫馨小鎮度過十二年"
+config/description="原創養成遊戲：父親與女兒在溫馨小鎮度過十八年"
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"

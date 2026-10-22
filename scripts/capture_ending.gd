@@ -18,7 +18,7 @@ func _run() -> void:
 	# Doctor-leaning sample stats
 	gs.year = 13
 	gs.season = 0
-	gs.months_played = 144
+	gs.months_played = 216
 	gs.charm = 58
 	gs.morals = 72
 	gs.social = 55
