@@ -30,12 +30,24 @@ var last_vignettes: Array = []
 ## Optional map beat rolled at season resolve (once per place per season)
 var last_roaming_event: Dictionary = {}
 ## Living album: {id, year, season, title, thumb_path, body}
+## New games seed a family photo via Mom.seed_family_album. Trips append more.
 var album: Array = []
 ## When set, the album scene returns here and may show album_browse instead of album
 var album_return_scene: String = ""
 var album_browse: Array = []
 var save_name: String = ""
+## Chosen on the title screen before a new game. Session-only: not written to saves.
+var wants_new_game_name: bool = false
+var daughter_name: String = "小悠"
+## Skill id -> XP. Levels are derived. Interest tag id -> points.
+## education_path is a later adulthood hook; this build never opens a choice UI.
+var skill_xp: Dictionary = {}
+var interest_points: Dictionary = {}
+var education_path: String = "undecided"
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+const DEFAULT_DAUGHTER_NAME := "小悠"
+const DAUGHTER_NAME_MAX := 8
 
 const SLOT_TITLES: PackedStringArray = ["第一本日記", "第二本日記", "第三本日記"]
 
@@ -60,7 +72,12 @@ func _ready() -> void:
 	pass
 
 
-func begin_new_game() -> void:
+func begin_new_game(given_name: String = "") -> void:
+	daughter_name = DEFAULT_DAUGHTER_NAME
+	var given := given_name.strip_edges()
+	if given != "" and daughter_name_error(given) == "":
+		daughter_name = given
+	wants_new_game_name = false
 	year = 1
 	season = 0
 	month_in_season = 0
@@ -83,6 +100,10 @@ func begin_new_game() -> void:
 	save_name = ""
 	_event_rng.randomize()
 	flags.clear()
+	flags["mom_warmth"] = 70
+	skill_xp = {}
+	interest_points = {}
+	education_path = "undecided"
 	reset_npc_affinity()
 	months_played = 0
 	is_game_over = false
@@ -93,7 +114,38 @@ func begin_new_game() -> void:
 	last_year_review = {}
 	pending_ending_after_review = false
 	snapshot_year_start()
+	Mom.seed_family_album(self)
 	state_changed.emit()
+
+
+## Empty string means the name is fine to keep.
+static func daughter_name_error(raw: String) -> String:
+	var cleaned := raw.strip_edges()
+	if cleaned == "":
+		return "名字還空著。"
+	if cleaned.length() > DAUGHTER_NAME_MAX:
+		return "八個字以內就好。"
+	if cleaned.contains("%"):
+		return "這個符號先不要寫進名字。"
+	for i in cleaned.length():
+		var code := cleaned.unicode_at(i)
+		if code < 32 or code == 127:
+			return "這個名字寫不進日記。"
+	return ""
+
+
+func daughter_display_name() -> String:
+	var cleaned := daughter_name.strip_edges()
+	if daughter_name_error(cleaned) != "":
+		return DEFAULT_DAUGHTER_NAME
+	return cleaned
+
+
+## Lines that name her use a single %s. Other sentences stay as written.
+func format_daughter(text: String) -> String:
+	if not text.contains("%s"):
+		return text
+	return text % daughter_display_name()
 
 
 func get_age() -> int:
@@ -106,8 +158,8 @@ func get_season_name() -> String:
 
 func get_time_label() -> String:
 	var stage := GameConfig.growth_stage_for_year(year)
-	return "第 %d 年 · %s · %d 歲（%s）" % [
-		year, get_season_name(), get_age(), GameConfig.growth_stage_label(stage)
+	return "第 %d 年 · %s · %s %d 歲（%s）" % [
+		year, get_season_name(), daughter_display_name(), get_age(), GameConfig.growth_stage_label(stage)
 	]
 
 
@@ -181,6 +233,7 @@ func apply_activity(activity_id: String) -> Dictionary:
 	var bump := TownNpcs.affinity_for_activity(aid)
 	if not bump.is_empty():
 		apply_affinity_map(bump, false)
+	GrowthPath.grant(self, aid)
 	var disp := str(delta.get("name", activity_id))
 	if disp != "":
 		year_activity_names.append(disp)
@@ -248,6 +301,7 @@ func resolve_season() -> Dictionary:
 
 	# Seasonal weather / festival event (~55% chance of themed event, else light beat)
 	var ev: Dictionary = SeasonEvents.roll_event(season, _event_rng, 0.55)
+	ev["body"] = str(ev.get("body", "")).replace("女兒", daughter_display_name())
 	last_season_event = ev
 	SeasonEvents.apply_deltas_to_state(self, ev.get("deltas", {}))
 	var sev_bump := TownNpcs.affinity_for_season_event(str(ev.get("id", "")))
@@ -474,6 +528,10 @@ func to_dict() -> Dictionary:
 		"npc_affinity": npc_affinity.duplicate(),
 		"album": _dict_array_dup(album),
 		"save_name": save_name,
+		"daughter_name": daughter_display_name(),
+		"skill_xp": skill_xp.duplicate(),
+		"interest_points": interest_points.duplicate(),
+		"education_path": education_path,
 	}
 
 
@@ -533,6 +591,16 @@ func from_dict(d: Dictionary) -> void:
 	album_browse = []
 	album_return_scene = ""
 	save_name = str(d.get("save_name", ""))
+	var loaded_name := str(d.get("daughter_name", "")).strip_edges()
+	if daughter_name_error(loaded_name) == "":
+		daughter_name = loaded_name
+	else:
+		daughter_name = DEFAULT_DAUGHTER_NAME
+	wants_new_game_name = false
+	skill_xp = _int_map(d.get("skill_xp", {}), true)
+	interest_points = _int_map(d.get("interest_points", {}), false)
+	var edu := str(d.get("education_path", "")).strip_edges()
+	education_path = edu if edu != "" else "undecided"
 	state_changed.emit()
 
 
@@ -706,6 +774,19 @@ func _dict_array_dup(src: Array) -> Array:
 	return out
 
 
+func _int_map(raw, skills_map: bool) -> Dictionary:
+	var out := {}
+	if typeof(raw) != TYPE_DICTIONARY:
+		return out
+	for key in raw:
+		var id := str(key)
+		var known := GrowthPath.is_skill(id) if skills_map else GrowthPath.is_tag(id)
+		if not known:
+			continue
+		out[id] = maxi(0, int(raw[key]))
+	return out
+
+
 func _parse_dict_array(raw) -> Array:
 	var out: Array = []
 	if typeof(raw) != TYPE_ARRAY:
@@ -760,6 +841,9 @@ func save_slot_preview(slot: int) -> Dictionary:
 	var name := str(data.get("save_name", ""))
 	if name == "":
 		name = slot_title(slot)
+	var dname := str(data.get("daughter_name", "")).strip_edges()
+	if daughter_name_error(dname) != "":
+		dname = DEFAULT_DAUGHTER_NAME
 	var album_raw = data.get("album", [])
 	var album_n := 0
 	if typeof(album_raw) == TYPE_ARRAY:
@@ -768,7 +852,7 @@ func save_slot_preview(slot: int) -> Dictionary:
 		"exists": true,
 		"slot": slot,
 		"title": name,
-		"detail": "第 %d 年 · %s · %d 歲" % [y, GameConfig.season_name(s), GameConfig.age_for_year(y)],
+		"detail": "第 %d 年 · %s · %s · %d 歲" % [y, GameConfig.season_name(s), dname, GameConfig.age_for_year(y)],
 		"year": y,
 		"season": s,
 		"album_count": album_n,

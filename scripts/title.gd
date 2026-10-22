@@ -6,12 +6,18 @@ var _slot_panel: PanelContainer
 var _slot_title: Label
 var _slot_list: VBoxContainer
 var _slot_mode: String = "load"
+var _name_layer: CanvasLayer
+var _name_field: LineEdit
+var _name_error: Label
 
 
 func _ready() -> void:
 	_build_cover_bg()
 	_build_bottom_cluster()
 	_build_slot_layer()
+	_build_name_layer()
+	if GameState.wants_new_game_name:
+		_open_name_panel()
 
 
 func _build_cover_bg() -> void:
@@ -192,7 +198,147 @@ func _rebuild_slots() -> void:
 
 
 func _on_new_game() -> void:
-	GameState.begin_new_game()
+	_open_name_panel()
+
+
+func _build_name_layer() -> void:
+	_name_layer = CanvasLayer.new()
+	_name_layer.name = "NameLayer"
+	_name_layer.layer = 24
+	_name_layer.visible = false
+	add_child(_name_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.45, 0.22, 0.32, 0.45)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_on_name_cancel()
+	)
+	_name_layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_name_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(480, 300)
+	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+	center.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 22)
+	margin.add_theme_constant_override("margin_right", 22)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	margin.add_child(v)
+
+	var title := Label.new()
+	title.text = "她的名字"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(title, 26)
+	v.add_child(title)
+
+	var lead := Label.new()
+	lead.text = "新的一本日記，先寫下她的名字。"
+	lead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lead.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(lead, 15, true)
+	v.add_child(lead)
+
+	_name_field = LineEdit.new()
+	_name_field.text = GameState.DEFAULT_DAUGHTER_NAME
+	_name_field.placeholder_text = GameState.DEFAULT_DAUGHTER_NAME
+	_name_field.max_length = GameState.DAUGHTER_NAME_MAX
+	_name_field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_field.custom_minimum_size = Vector2(0, 52)
+	_name_field.add_theme_font_override("font", UiStyle.ui_font())
+	_name_field.add_theme_font_size_override("font_size", 22)
+	_name_field.add_theme_color_override("font_color", GameConfig.COL_TEXT)
+	_name_field.add_theme_color_override("font_placeholder_color", GameConfig.COL_TEXT_MUTED)
+	_name_field.add_theme_color_override("caret_color", GameConfig.COL_TEXT)
+	var field_box := StyleBoxFlat.new()
+	field_box.bg_color = Color("FFF8FA")
+	field_box.border_color = Color("F5B8C8")
+	field_box.set_border_width_all(2)
+	field_box.set_corner_radius_all(14)
+	field_box.content_margin_left = 14
+	field_box.content_margin_right = 14
+	field_box.content_margin_top = 8
+	field_box.content_margin_bottom = 8
+	_name_field.add_theme_stylebox_override("normal", field_box)
+	var focus_box := field_box.duplicate() as StyleBoxFlat
+	focus_box.border_color = Color("F090A8")
+	_name_field.add_theme_stylebox_override("focus", focus_box)
+	_name_field.text_submitted.connect(func(_t: String) -> void: _on_name_confirm())
+	_name_field.text_changed.connect(func(_t: String) -> void:
+		if _name_error:
+			_name_error.text = ""
+	)
+	v.add_child(_name_field)
+
+	var hint := Label.new()
+	hint.text = "一到八個字，中文、英文都可以。"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(hint, 13, true)
+	v.add_child(hint)
+
+	_name_error = Label.new()
+	_name_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_error.custom_minimum_size = Vector2(0, 22)
+	UiStyle.apply_label(_name_error, 14)
+	_name_error.add_theme_color_override("font_color", Color("C45A7A"))
+	v.add_child(_name_error)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(row)
+
+	var back := Button.new()
+	back.text = "返回封面"
+	UiStyle.apply_button(back, false)
+	back.custom_minimum_size = Vector2(150, 46)
+	back.pressed.connect(_on_name_cancel)
+	row.add_child(back)
+
+	var ok := Button.new()
+	ok.text = "寫下名字"
+	UiStyle.apply_button(ok, true)
+	ok.custom_minimum_size = Vector2(150, 46)
+	ok.pressed.connect(_on_name_confirm)
+	row.add_child(ok)
+
+
+func _open_name_panel() -> void:
+	if _slot_layer:
+		_slot_layer.visible = false
+	_name_field.text = GameState.DEFAULT_DAUGHTER_NAME
+	_name_field.caret_column = _name_field.text.length()
+	_name_error.text = ""
+	_name_layer.visible = true
+	_name_field.grab_focus()
+	_name_field.select_all()
+
+
+func _on_name_cancel() -> void:
+	GameState.wants_new_game_name = false
+	_name_layer.visible = false
+
+
+func _on_name_confirm() -> void:
+	var cleaned := _name_field.text.strip_edges()
+	var err := GameState.daughter_name_error(cleaned)
+	if err != "":
+		_name_error.text = err
+		return
+	GameState.wants_new_game_name = false
+	GameState.begin_new_game(cleaned)
 	get_tree().change_scene_to_file("res://scenes/home_hub.tscn")
 
 

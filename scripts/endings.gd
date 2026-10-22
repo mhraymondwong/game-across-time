@@ -35,17 +35,31 @@ static func all() -> Array:
 static func evaluate(state: Node) -> Dictionary:
 	var list := all()
 	list.sort_custom(func(a, b): return int(a["priority"]) > int(b["priority"]))
+	var matched: Array = []
 	for e in list:
 		if _matches(str(e["id"]), state):
-			var chosen: Dictionary = (e as Dictionary).duplicate(true)
-			if str(chosen.get("id", "")) == "town_bond":
-				chosen["summary"] = TownNpcs.ending_summary(state)
-			else:
-				var aside := TownNpcs.ending_aside(state)
-				if aside != "":
-					chosen["summary"] = str(chosen.get("summary", "")) + aside
-			return chosen
-	return list[-1]
+			matched.append(e)
+	if matched.is_empty():
+		return list[-1]
+	var top_pri := int(matched[0].get("priority", 0))
+	var best: Dictionary = matched[0]
+	var best_score := top_pri + GrowthPath.ending_bonus(str(best.get("id", "")), state)
+	for e in matched:
+		var pri := int(e.get("priority", 0))
+		if top_pri - pri > GrowthPath.BIAS_WINDOW:
+			continue
+		var score := pri + GrowthPath.ending_bonus(str(e.get("id", "")), state)
+		if score > best_score:
+			best = e
+			best_score = score
+	var chosen: Dictionary = best.duplicate(true)
+	if str(chosen.get("id", "")) == "town_bond":
+		chosen["summary"] = TownNpcs.ending_summary(state)
+	else:
+		var aside := TownNpcs.ending_aside(state)
+		if aside != "":
+			chosen["summary"] = str(chosen.get("summary", "")) + aside
+	return chosen
 
 
 static func _matches(id: String, s: Node) -> bool:
