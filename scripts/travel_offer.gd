@@ -71,7 +71,7 @@ func _show_when() -> void:
 	var cash := int(GameState.cash)
 	_add_body("第 %d 年可以走一趟遠的。選在這個夏天出發，或留到冬天；也可以今年先不去。日記還是排三個月，旅行是額外的一頁。" % int(GameState.year))
 	_add_meta("家計　$%d" % cash)
-	var tex := _load_tex(Mom.FAMILY_PHOTO_PATH)
+	var tex := _load_tex(AgeLooks.family_photo(int(GameState.year)))
 	if tex != null:
 		_body.add_child(_photo_frame(tex, Vector2(360, 200)))
 	_body.add_child(_button("夏天出發", true, _on_summer))
@@ -150,7 +150,7 @@ func _dest_card(dest: Dictionary) -> PanelContainer:
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
 
-	var tex := _load_tex(str(dest.get("thumb", "")))
+	var tex := _load_tex(Travel.thumb_for(dest_id, int(GameState.year)))
 	if tex != null:
 		row.add_child(_photo_frame(tex, Vector2(112, 84)))
 

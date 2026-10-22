@@ -112,6 +112,112 @@ static func make_bg(parent: Control, color: Color = GameConfig.COL_BG) -> ColorR
 	return bg
 
 
+## Full-screen pink diary lightbox. Tap outside,「闔上」, or Esc (via lightbox_consume_cancel).
+static func show_diary_lightbox(parent: Node, tex: Texture2D, title: String, body: String) -> void:
+	dismiss_diary_lightbox(parent)
+	var layer := CanvasLayer.new()
+	layer.name = "DiaryLightbox"
+	layer.layer = 50
+	parent.add_child(layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.33, 0.16, 0.24, 0.58)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			dismiss_diary_lightbox(parent)
+	)
+	layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(760, 0)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.add_theme_stylebox_override("panel", panel_style(Color("FFF5F8"), Color("F5A8C0"), 22))
+	center.add_child(panel)
+
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(v)
+
+	if tex != null:
+		var frame := PanelContainer.new()
+		var inner := panel_style(Color("FFFAFC"), Color("F0C0D0"), 8)
+		inner.set_border_width_all(8)
+		inner.border_width_bottom = 22
+		inner.set_content_margin_all(6)
+		inner.shadow_size = 0
+		frame.add_theme_stylebox_override("panel", inner)
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var photo := TextureRect.new()
+		photo.custom_minimum_size = Vector2(720, 380)
+		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		photo.texture = tex
+		frame.add_child(photo)
+		v.add_child(frame)
+
+	var cap := Label.new()
+	cap.text = title if title != "" else "一頁回憶"
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	apply_label(cap, 24)
+	v.add_child(cap)
+
+	if body != "":
+		var copy := Label.new()
+		copy.text = body
+		copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		apply_label(copy, 16)
+		v.add_child(copy)
+
+	var hint := Label.new()
+	hint.text = "點外面，或按 Esc，就可以闔上。"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	apply_label(hint, 13, true)
+	v.add_child(hint)
+
+	var close := Button.new()
+	close.text = "闔上 ♡"
+	apply_button(close, true)
+	close.pressed.connect(func() -> void: dismiss_diary_lightbox(parent))
+	v.add_child(close)
+
+
+static func dismiss_diary_lightbox(parent: Node) -> void:
+	var layer := parent.get_node_or_null("DiaryLightbox")
+	if layer == null:
+		return
+	parent.remove_child(layer)
+	layer.queue_free()
+
+
+static func lightbox_open(parent: Node) -> bool:
+	return parent.get_node_or_null("DiaryLightbox") != null
+
+
+static func lightbox_consume_cancel(parent: Node, event: InputEvent) -> bool:
+	if not lightbox_open(parent):
+		return false
+	var cancel := event.is_action_pressed("ui_cancel")
+	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_ESCAPE:
+		cancel = true
+	if not cancel:
+		return false
+	dismiss_diary_lightbox(parent)
+	return true
+
+
 static func make_texture_bg(parent: Control, path: String) -> TextureRect:
 	var tex := TextureRect.new()
 	tex.texture = load(path)

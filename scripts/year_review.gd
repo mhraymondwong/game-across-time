@@ -69,11 +69,27 @@ func _ready() -> void:
 	if polaroid_path != "":
 		collage.texture = _load_tex(polaroid_path)
 	collage_panel.add_child(collage)
+	collage_panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var review_title := "第 %d 年 · 相簿回顧" % int(review.get("year", 1))
+	var review_body := str(review.get("summary", ""))
+	var review_tex := collage.texture
+	collage_panel.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			UiStyle.show_diary_lightbox(self, review_tex, review_title, review_body)
+			collage_panel.accept_event()
+	)
+
+	var zoom_hint := Label.new()
+	zoom_hint.text = "點一下攤開這頁"
+	zoom_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(zoom_hint, 13, true)
+	left.add_child(zoom_hint)
 
 	var sticker_row := HBoxContainer.new()
 	sticker_row.add_theme_constant_override("separation", 8)
 	sticker_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	left.add_child(sticker_row)
+
 	for txt in ["✿", "♡", "★", "☁", "♪"]:
 		var st := Label.new()
 		st.text = txt
@@ -231,6 +247,11 @@ func _load_tex(path: String) -> Texture2D:
 		if img:
 			return ImageTexture.create_from_image(img)
 	return null
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if UiStyle.lightbox_consume_cancel(self, event):
+		get_viewport().set_input_as_handled()
 
 
 func _on_continue() -> void:

@@ -51,7 +51,7 @@ func _ready() -> void:
 	if entries.is_empty():
 		meta.text = "還沒有貼上照片"
 	else:
-		meta.text = "貼了 %d 張　·　從新的回憶往回翻" % entries.size()
+		meta.text = "貼了 %d 張　·　點一下可以看大" % entries.size()
 	meta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	UiStyle.apply_label(meta, 15, true)
 	v.add_child(meta)
@@ -103,12 +103,21 @@ func _entries() -> Array:
 func _card(entry: Dictionary) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", _polaroid_frame())
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var thumb_path := str(entry.get("thumb_path", ""))
+	var tex := _load_tex(thumb_path)
+	card.set_meta("album_entry", entry)
+	card.set_meta("album_tex", tex)
+	card.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_open_lightbox(entry, tex)
+			card.accept_event()
+	)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	card.add_child(row)
 
-	var thumb_path := str(entry.get("thumb_path", ""))
-	var tex := _load_tex(thumb_path)
 	if tex != null:
 		var frame := PanelContainer.new()
 		var inner_style := UiStyle.panel_style(Color("FFFAFC"), Color("F0C0D0"), 6)
@@ -123,7 +132,6 @@ func _card(entry: Dictionary) -> PanelContainer:
 		thumb.custom_minimum_size = Vector2(140, 110)
 		thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		thumb.texture = tex
 		frame.add_child(thumb)
 		row.add_child(frame)
@@ -151,7 +159,24 @@ func _card(entry: Dictionary) -> PanelContainer:
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(body, 15)
 	col.add_child(body)
+	_pass_clicks(card)
 	return card
+
+
+func _pass_clicks(node: Node) -> void:
+	for child in node.get_children():
+		if child is Control:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_pass_clicks(child)
+
+
+func _open_lightbox(entry: Dictionary, tex: Texture2D) -> void:
+	UiStyle.show_diary_lightbox(self, tex, str(entry.get("title", "一頁回憶")), str(entry.get("body", "")))
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if UiStyle.lightbox_consume_cancel(self, event):
+		get_viewport().set_input_as_handled()
 
 
 func _polaroid_frame() -> StyleBoxFlat:
