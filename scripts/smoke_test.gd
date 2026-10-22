@@ -635,6 +635,19 @@ func _run() -> void:
 			phase10_ok = false
 		else:
 			print("[smoke] art %s OK" % rel)
+	for look_band in AgeLooks.BANDS:
+		for rel in [
+			"res://assets/family/daughter_%s.png" % look_band,
+			"res://assets/family/mom_%s_cutout.png" % look_band,
+			"res://assets/family/mom_%s_bust.png" % look_band,
+			"res://assets/family/dad_%s.png" % look_band,
+			"res://assets/family/family_%s.jpg" % look_band,
+		]:
+			if not FileAccess.file_exists(ProjectSettings.globalize_path(rel)):
+				printerr("[smoke] FAIL missing art %s" % rel)
+				phase10_ok = false
+			else:
+				print("[smoke] art %s OK" % rel)
 	if Mom.APPEAR_CHANCE < 0.25 or Mom.APPEAR_CHANCE > 0.35:
 		printerr("[smoke] FAIL mom appear chance %s" % str(Mom.APPEAR_CHANCE))
 		phase10_ok = false
@@ -699,7 +712,7 @@ func _run() -> void:
 	gs.begin_new_game()
 	var seeded := false
 	for fam_entry in gs.album:
-		if str(fam_entry.get("id", "")) == "family_photo_child" and str(fam_entry.get("thumb_path", "")).ends_with("family_photo_child.jpg"):
+		if str(fam_entry.get("id", "")) == "family_photo_child" and str(fam_entry.get("thumb_path", "")).ends_with("family_early.jpg"):
 			seeded = true
 	if not seeded:
 		printerr("[smoke] FAIL family photo not seeded")
@@ -849,17 +862,17 @@ func _run() -> void:
 	elif AgeLooks.band_for_age(6) != "early" or AgeLooks.band_for_age(12) != "junior" or AgeLooks.band_for_age(23) != "adult":
 		printerr("[smoke] FAIL age_for band")
 		phase10_ok = false
-	elif AgeLooks.mom_pin(3) != Mom.PIN_PATH or AgeLooks.mom_pin(14) != Mom.PIN_PATH or AgeLooks.mom_portrait(9) != Mom.PORTRAIT_PATH:
-		printerr("[smoke] FAIL mom band fallback pin=%s bust=%s" % [AgeLooks.mom_pin(3), AgeLooks.mom_portrait(9)])
+	elif AgeLooks.mom_pin(3) != "res://assets/family/mom_elementary_cutout.png" or AgeLooks.mom_pin(14) != "res://assets/family/mom_adult_cutout.png" or AgeLooks.mom_portrait(9) != "res://assets/family/mom_senior_bust.png":
+		printerr("[smoke] FAIL mom band art pin=%s bust=%s" % [AgeLooks.mom_pin(3), AgeLooks.mom_portrait(9)])
 		phase10_ok = false
-	elif AgeLooks.dad_portrait(8) != "":
-		printerr("[smoke] FAIL dad portrait invented a file")
+	elif AgeLooks.dad_portrait(8) != "res://assets/family/dad_junior.png":
+		printerr("[smoke] FAIL dad band art %s" % AgeLooks.dad_portrait(8))
 		phase10_ok = false
-	elif not str(AgeLooks.family_photo(1)).ends_with("family_photo_child.jpg") or not str(AgeLooks.family_photo(15)).ends_with("family_photo_child.jpg"):
-		printerr("[smoke] FAIL family photo band fallback")
+	elif not str(AgeLooks.family_photo(1)).ends_with("family_early.jpg") or not str(AgeLooks.family_photo(15)).ends_with("family_adult.jpg"):
+		printerr("[smoke] FAIL family photo band %s / %s" % [AgeLooks.family_photo(1), AgeLooks.family_photo(15)])
 		phase10_ok = false
-	elif AgeLooks.daughter_portrait(16, 2) != GameConfig.wardrobe_path_for_year_season(16, 2):
-		printerr("[smoke] FAIL daughter band fallback")
+	elif AgeLooks.daughter_portrait(16, 2) != "res://assets/family/daughter_adult.png":
+		printerr("[smoke] FAIL daughter band art %s" % AgeLooks.daughter_portrait(16, 2))
 		phase10_ok = false
 	elif Travel.thumb_for("japan", 2) != str(Travel.get_dest("japan").get("thumb", "")) or Travel.thumb_for("japan", 8) != Travel.thumb_for("japan", 18):
 		printerr("[smoke] FAIL japan thumb_for fallback")
@@ -868,7 +881,7 @@ func _run() -> void:
 		printerr("[smoke] FAIL europe thumb_for")
 		phase10_ok = false
 	else:
-		print("[smoke] age_bands_family fallback OK")
+		print("[smoke] age_bands_family portraits OK")
 
 	gs.begin_new_game()
 	gs.year = 3

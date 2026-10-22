@@ -495,12 +495,14 @@
 | 女兒主畫面 | `assets/family/daughter_{band}.png` | 既有季立繪 `wardrobe_path_for_year_season`（已經按階段換） |
 | 媽媽立牌 | `assets/family/mom_{band}_cutout.png` | `assets/family/mom_fullbody_cutout.png` |
 | 媽媽對話半身 | `assets/family/mom_{band}_bust.png` | `assets/family/mom_bust_cutout.png` |
-| 爸爸 | `assets/family/dad_{band}.png` | 還沒有立繪，解析結果是空的，畫面上也還沒有他的位子 |
+| 爸爸 | `assets/family/dad_{band}.png` | 缺檔時是空字串，畫面上也還沒有他的位子 |
 | 相簿合照 | `assets/family/family_{band}.jpg` | `assets/family/family_photo_child.jpg` |
 
-`{dest}` 是 `china`／`japan`／`asia`／`europe`／`australia`。同名的 png 也可以。新局種下的那張合照走第 1 年（幼年），所以現在仍是童年全家福那一張。
+`{dest}` 是 `china`／`japan`／`asia`／`europe`／`australia`。同名的 png 也可以。新局種下的那張合照走第 1 年（幼年）。
 
-主畫面女兒已改問 `AgeLooks.daughter_portrait`，媽媽立牌與對話改問 `mom_pin`／`mom_portrait`。在專屬圖缺檔的時候，玩家看到的還是現在這些圖。爸爸沒有畫面可接。這不是把六階季立繪收成五張；季立繪仍是女兒的退路。
+女兒、媽媽、爸爸的五段肖像，以及相簿的五段全家福，已經放進 `assets/family/`。遠行 `{dest}_{band}` 靜圖仍缺，各年齡段繼續退回該目的地那張。
+
+主畫面女兒已改問 `AgeLooks.daughter_portrait`，媽媽立牌與對話改問 `mom_pin`／`mom_portrait`，所以會用到上面那些五段圖。缺檔才退回季立繪與原本的媽媽剪影。爸爸的圖已在庫裡，畫面上還沒有他的位子。這不是把六階季立繪收成五張；季立繪仍是女兒的退路。
 
 ### 相簿放大
 
@@ -525,5 +527,5 @@
 | 診所 | `assets/places/place_clinic.jpg` |
 | 文化中心 | `assets/places/place_culture.jpg` |
 
-**狀態**：Phase B；smoke 覆蓋五張遠行圖的路徑與檔案、`thumb_for` 在各年齡段都退回那張圖、五段年份對照、媽媽／女兒／合照的缺檔退路、相簿放大層的開啟與 Esc、六個地點的插畫、圖釘與貼紙。沒有補畫年齡段新圖，沒有升學畫面，沒有重匯網頁版。
+**狀態**：Phase B；smoke 覆蓋五張遠行圖的路徑與檔案、`thumb_for` 在各年齡段都退回那張圖、五段年份對照、家人五段肖像與合照、相簿放大層的開啟與 Esc、六個地點的插畫、圖釘與貼紙。家人年齡段肖像已進庫，遠行年齡段靜圖仍缺，沒有升學畫面，沒有重匯網頁版。
 
