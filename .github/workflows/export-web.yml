@@ -55,6 +55,7 @@ jobs:
             libxi6 \
             libxrandr2 \
             libxrender1 \
+            pngquant \
             unzip
           if ! sudo apt-get install -y --no-install-recommends libasound2t64; then
             sudo apt-get install -y --no-install-recommends libasound2
