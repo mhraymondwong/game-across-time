@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>時光裡的她</title>
+		<meta name="theme-color" content="#eee1cb">
+		<title>《時光裡的她》</title>
 		<style>
 html, body, #canvas {
 	margin: 0;
@@ -12,8 +13,8 @@ html, body, #canvas {
 }
 
 body {
-	color: white;
-	background-color: black;
+	color: #6d453f;
+	background-color: #eee1cb;
 	overflow: hidden;
 	touch-action: none;
 }
@@ -26,29 +27,51 @@ body {
 	outline: none;
 }
 
-#status, #status-splash, #status-progress {
-	position: absolute;
-	left: 0;
-	right: 0;
-}
-
-#status, #status-splash {
-	top: 0;
-	bottom: 0;
-}
-
 #status {
-	background-color: #242424;
+	position: absolute;
+	inset: 0;
 	display: flex;
-	flex-direction: column;
-	justify-content: center;
 	align-items: center;
+	justify-content: center;
+	background-color: #eee1cb;
 	visibility: hidden;
 }
 
+#status-fallback {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	pointer-events: none;
+}
+
+#status-kicker {
+	margin: 0 0 0.85rem;
+	font-family: "Songti TC", "PMingLiU", "Noto Serif CJK TC", Palatino, "Palatino Linotype", serif;
+	font-size: clamp(14px, 1.7vw, 20px);
+	letter-spacing: 0.22em;
+	color: #8d5a52;
+}
+
+#status-title {
+	margin: 0;
+	font-family: "Songti TC", "PMingLiU", "Noto Serif CJK TC", Palatino, "Palatino Linotype", serif;
+	font-weight: 600;
+	font-size: clamp(42px, 7vw, 88px);
+	letter-spacing: 0.14em;
+	color: #9a5360;
+}
+
 #status-splash {
-	max-height: 100%;
+	position: absolute;
+	inset: 0;
+	z-index: 1;
 	max-width: 100%;
+	max-height: 100%;
 	margin: auto;
 }
 
@@ -57,8 +80,8 @@ body {
 }
 
 #status-splash.fullsize--true {
-	height: 100%;
 	width: 100%;
+	height: 100%;
 	object-fit: contain;
 }
 
@@ -66,28 +89,87 @@ body {
 	image-rendering: pixelated;
 }
 
-#status-progress, #status-notice {
+#status-loading {
+	position: absolute;
+	left: 50%;
+	bottom: 6.5%;
+	z-index: 2;
 	display: none;
+	flex-direction: column;
+	align-items: center;
+	gap: 7px;
+	padding: 8px 22px 10px;
+	border: 1px solid rgba(168, 93, 107, 0.35);
+	border-radius: 999px;
+	background: rgba(255, 248, 240, 0.84);
+	box-shadow: 0 10px 28px rgba(120, 78, 62, 0.12);
+	transform: translateX(-50%);
+}
+
+#status-caption {
+	margin: 0;
+	color: #8d4d58;
+	font-family: "Songti TC", "PMingLiU", "Noto Serif CJK TC", Palatino, "Palatino Linotype", serif;
+	font-size: 13px;
+	letter-spacing: 0.42em;
+	text-indent: 0.42em;
+	animation: diary-pulse 1.6s ease-in-out infinite;
 }
 
 #status-progress {
-	bottom: 10%;
-	width: 50%;
-	margin: 0 auto;
+	display: none;
+	width: min(220px, 42vw);
+	height: 4px;
+	margin: 0;
+	overflow: hidden;
+	border: 0;
+	border-radius: 999px;
+	background-color: rgba(141, 77, 88, 0.18);
+	accent-color: #a85d6b;
+	appearance: none;
+	-webkit-appearance: none;
+}
+
+#status-progress::-webkit-progress-bar {
+	border-radius: 999px;
+	background-color: rgba(141, 77, 88, 0.18);
+}
+
+#status-progress::-webkit-progress-value {
+	border-radius: 999px;
+	background-color: #a85d6b;
+}
+
+#status-progress::-moz-progress-bar {
+	border-radius: 999px;
+	background-color: #a85d6b;
 }
 
 #status-notice {
-	background-color: #5b3943;
-	border-radius: 0.5rem;
-	border: 1px solid #9b3943;
-	color: #e0e0e0;
-	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
-	line-height: 1.3;
+	position: relative;
+	z-index: 3;
+	display: none;
+	max-width: 36rem;
 	margin: 0 2rem;
+	padding: 1rem 1.2rem;
 	overflow: hidden;
-	padding: 1rem;
+	border: 1px solid #e2c1bc;
+	border-radius: 0.75rem;
+	background-color: rgba(255, 248, 241, 0.96);
+	box-shadow: 0 12px 32px rgba(120, 78, 62, 0.16);
+	color: #6d403c;
+	font-family: "Songti TC", "PMingLiU", "Noto Serif CJK TC", Palatino, "Palatino Linotype", sans-serif;
+	line-height: 1.45;
 	text-align: center;
-	z-index: 1;
+}
+
+@keyframes diary-pulse {
+	0%, 100% { opacity: 0.62; }
+	50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#status-caption { animation: none; }
 }
 		</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
@@ -103,9 +185,16 @@ body {
 			Your browser does not support JavaScript.
 		</noscript>
 
-		<div id="status">
-			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="">
-			<progress id="status-progress"></progress>
+		<div id="status" role="status" aria-live="polite">
+			<div id="status-fallback" aria-hidden="true">
+				<p id="status-kicker">父親與女兒 · 溫馨小鎮</p>
+				<h1 id="status-title">時光裡的她</h1>
+			</div>
+			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="時光裡的她">
+			<div id="status-loading">
+				<p id="status-caption">載入中</p>
+				<progress id="status-progress"></progress>
+			</div>
 			<div id="status-notice"></div>
 		</div>
 
@@ -119,6 +208,7 @@ const engine = new Engine(GODOT_CONFIG);
 	const statusOverlay = document.getElementById('status');
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
+	const statusLoading = document.getElementById('status-loading');
 
 	let initializing = true;
 	let statusMode = '';
@@ -133,7 +223,11 @@ const engine = new Engine(GODOT_CONFIG);
 			return;
 		}
 		statusOverlay.style.visibility = 'visible';
-		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		const showProgress = mode === 'progress';
+		statusProgress.style.display = showProgress ? 'block' : 'none';
+		if (statusLoading) {
+			statusLoading.style.display = showProgress ? 'flex' : 'none';
+		}
 		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
 		statusMode = mode;
 	}
@@ -193,8 +287,7 @@ const engine = new Engine(GODOT_CONFIG);
 				console.error('Error while registering service worker:', err);
 			});
 		} else {
-			// Display the message as usual
-			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			const missingMsg = 'Error\nThe following features required to run this game in the browser are missing:\n';
 			displayFailureNotice(missingMsg + missing.join('\n'));
 		}
 	} else {
@@ -217,4 +310,3 @@ const engine = new Engine(GODOT_CONFIG);
 		</script>
 	</body>
 </html>
-

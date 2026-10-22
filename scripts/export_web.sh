@@ -131,4 +131,18 @@ fi
 
 cp "$HEADERS_SRC" "${OUT_DIR}/_headers"
 echo "Copied public/_headers -> build/web/_headers"
+
+# Godot's Image.save_png rewrites index.png as a large truecolor file.
+# Quantize it back so the Pages loading image stays near the source splash size.
+SPLASH_PNG="${OUT_DIR}/index.png"
+if [[ -f "$SPLASH_PNG" ]] && command -v pngquant >/dev/null 2>&1; then
+  tmp_splash="${SPLASH_PNG}.quant.png"
+  if pngquant --quality=90-100 --speed 1 --strip --force -o "$tmp_splash" "$SPLASH_PNG"; then
+    mv "$tmp_splash" "$SPLASH_PNG"
+    echo "Recompressed boot splash: ${SPLASH_PNG}"
+  else
+    rm -f "$tmp_splash"
+    echo "pngquant left the boot splash unchanged"
+  fi
+fi
 echo "Web export ready: ${OUT_DIR}"

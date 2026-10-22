@@ -15,6 +15,12 @@ config/description="原創養成遊戲：父親與女兒在溫馨小鎮度過十
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
+; Diary-cover loading screen. PNG only; stretch_mode 1 = Keep (1280×720, no crop).
+boot_splash/bg_color=Color(0.93333334, 0.88235295, 0.79607844, 1)
+boot_splash/image="res://assets/boot_splash.png"
+boot_splash/show_image=true
+boot_splash/stretch_mode=1
+boot_splash/use_filter=true
 
 [autoload]
 
