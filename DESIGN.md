@@ -195,6 +195,7 @@
 ### 畫面（選項 2 · 相簿貼圖風）
 - 全屏 `assets/year_review/album_bg`；左側拍立得拼貼依年齡帶：`polaroids_{child|teen|young}`（缺檔回退 young→teen→child→album_bg）
 - 右側手帳卡：標題「第 N 年 · 相簿回顧」、年齡／階段、溫馨摘要、成長貼紙（數值增減）、3–6 則亮點
+- 左側拼貼可點開，放大層與累積相簿相同（見 §26）
 - `GameConfig.year_review_album_bg`／`year_review_polaroid_path`／`polaroid_band_for_age`
 
 **狀態**：v0.6 Phase 6；smoke 覆蓋回顧字典形狀、冬→year_review、y12→結局。
@@ -254,7 +255,7 @@
 
 ## 19. 隨機地圖事件（feat-C）
 
-- 點地圖 pin 仍走粉紅地點彈窗；`GameState.trigger_place_event` 擲選事件、經 `apply_map_event_delta` 套用數值，並尊重 `once` 旗標
+- 點地圖 pin 仍走粉紅地點彈窗（插畫、圖釘與短貼紙見 §26）；`GameState.trigger_place_event` 擲選事件、經 `apply_map_event_delta` 套用數值，並尊重 `once` 旗標
 - 同一地點同一季只觸發一次（旗標 `map_evt_{年}_{季}_{地點}`）。再點只顯示安靜短句，造訪次數仍累加，方便解鎖
 - 季結算約三分之一機率，在「本季還沒遇過事」的地點補一則路上小事（只用可重複的 flavor，不消耗一次性故事），顯示在結算卡「路上遇見」
 
@@ -262,7 +263,7 @@
 
 - `GameState.album`：`{id, year, season, title, thumb_path, body}`，寫入存檔
 - 海灘／上山這類帶靜態圖的季節事件會貼一張；活動小過場裡標成 `notable` 的月份也會貼（才藝、朋友、短途、上台等）
-- 主畫面手帳「相簿」打開 `scenes/album.tscn`，沿用年末回顧的相簿底與拍立得框；空白時有一句溫柔提示。新的回憶排在上面
+- 主畫面手帳「相簿」打開 `scenes/album.tscn`，沿用年末回顧的相簿底與拍立得框；空白時有一句溫柔提示。新的回憶排在上面。點照片或整張卡片可放大（見 §26）
 
 ## 21. 教學與多槽存檔（feat-E）
 
@@ -318,14 +319,12 @@
 | 目的地 | 開放 | 約略年齡 | 花費 | 相簿圖 |
 |--------|------|----------|------|--------|
 | 中國 | 第 1 年起（小學只有這個） | 6 歲起 | $1800 | `assets/travel/travel_china_family.jpg` |
-| 日本 | 第 7 年起（國中） | 約 12 歲 | $4200 | 暫用童年全家福 |
-| 亞洲 | 第 10 年起 | 約 15 歲 | $5400 | 暫用童年全家福 |
-| 歐洲 | 第 10 年起 | 約 15 歲 | $7600 | 暫用童年全家福 |
-| 澳洲 | 第 10 年起 | 約 15 歲 | $6800 | 暫用童年全家福 |
+| 日本 | 第 7 年起（國中） | 約 12 歲 | $4200 | `assets/travel/travel_japan_family.jpg` |
+| 亞洲 | 第 10 年起 | 約 15 歲 | $5400 | `assets/travel/travel_asia_family.jpg` |
+| 歐洲 | 第 10 年起 | 約 15 歲 | $7600 | `assets/travel/travel_europe_family.jpg` |
+| 澳洲 | 第 10 年起 | 約 15 歲 | $6800 | `assets/travel/travel_australia_family.jpg` |
 
-小學（約第 1–6 年／6–11 歲）只能選中國。國中起加上日本。第 10 年起五處都能選，中國與日本不會被關掉。
-
-日本／亞洲／歐洲／澳洲還沒有專屬插畫。`scripts/travel.gd` 裡用童年全家福當暫用縮圖，並標了 TODO；不因此擋住流程。
+小學（約第 1–6 年／6–11 歲）只能選中國。國中起加上日本。第 10 年起五處都能選，中國與日本不會被關掉。五張圖都是該趟旅行的全家福，也是每個年齡段缺檔時的退路。相簿與短過場走 `Travel.thumb_for(id, 年)`（見 §26）。
 
 **狀態**：媽媽與遠行；smoke 覆蓋解鎖弧、家計鎖、扣款與相簿、跳過／延後、排程不被改寫、媽媽對白與小幫忙的存檔，以及她不在小鎮好感名單裡。
 
@@ -415,7 +414,7 @@
 
 ## 25. 成年六年（Phase A）
 
-童年仍是第 1–12 年（約 6–17 歲）。接著再玩 6 年，結局改在**第 18 年冬**的相簿回顧之後，不在第 12 年末。語氣維持大人懷舊、日記口吻，沒有露骨內容。升學分叉的選擇畫面仍是以後的 Phase C；旅行目的地的新圖是 Phase B。這一節不畫新的 Imagine 圖。
+童年仍是第 1–12 年（約 6–17 歲）。接著再玩 6 年，結局改在**第 18 年冬**的相簿回顧之後，不在第 12 年末。語氣維持大人懷舊、日記口吻，沒有露骨內容。升學分叉的選擇畫面仍是以後的 Phase C。旅行目的地的專屬圖見 §26。這一節不畫新的 Imagine 圖。
 
 ### 篇幅 `adult_plus6_end_y18`
 
@@ -456,5 +455,75 @@
 - 版本記為 2。新欄位：`romance`、`family_prep`、`family_settled`、`adult_job`
 - 舊檔沒有這些欄位時，戀愛進度是 0、未成家、工作空白，第 12 年以前的進度不受影響。若存檔已經停在第 12 年冬的結局前，那一頁仍會進結局；還沒過完第 12 年的檔會接著進入成年
 
-**狀態**：成年六年；smoke 覆蓋第 12 年不停、第 18 年末才結局、工作名單與升學鉤子、戀愛與可選成家、結局重排、舊檔預設值、主畫面上的戀愛進度與工作，以及缺圖時回退青年立繪。沒有升學選擇畫面，沒有新的旅行圖，也沒有重匯網頁版。
+**狀態**：成年六年；smoke 覆蓋第 12 年不停、第 18 年末才結局、工作名單與升學鉤子、戀愛與可選成家、結局重排、舊檔預設值、主畫面上的戀愛進度與工作，以及缺圖時回退青年立繪。沒有升學選擇畫面，也沒有重匯網頁版。旅行圖見 §26。
+
+## 26. Phase B — 遠行圖、相簿放大、地點彈窗
+
+升學選擇畫面（Phase C）與網頁重匯不在這一節。圖用現成靜圖，沒有另外重畫。
+
+### 遠行圖（目前每一段都用這張）
+
+五個目的地各有一張全家福。日本、亞洲、歐洲、澳洲不再借用童年全家福。相簿與遠行頁呼叫 `Travel.thumb_for(id, 年)`，今天每個年齡段都退回這張：
+
+| 目的地 | 目前的圖（各年齡段的退路） |
+|--------|------------------------------|
+| 中國 | `assets/travel/travel_china_family.jpg` |
+| 日本 | `assets/travel/travel_japan_family.jpg` |
+| 亞洲 | `assets/travel/travel_asia_family.jpg` |
+| 歐洲 | `assets/travel/travel_europe_family.jpg` |
+| 澳洲 | `assets/travel/travel_australia_family.jpg` |
+
+### 年齡段外貌 `age_bands_family`
+
+女兒、媽媽、爸爸各自一段一個樣子。遠行全家福、主畫面立繪、媽媽剪影、相簿合照，最後都按這五段挑圖。這一次只把選圖的入口接上；缺的圖不畫、也不用別張冒充。
+
+年段跟既有立繪階段同一條線（`growth_stage_for_year`，每兩年一階）。成年不拆進童年那六階。
+
+| band | 稱呼 | 年 | 約略年齡 | 對上的立繪階段 |
+|------|------|----|----------|----------------|
+| `early` | 幼年 | 1–2 | 6–7 歲 | 0 幼年 |
+| `elementary` | 國小 | 3–6 | 8–11 歲 | 1–2 童年、高小 |
+| `junior` | 國中 | 7–8 | 12–13 歲 | 3 少年 |
+| `senior` | 高中 | 9–12 | 14–17 歲 | 4–5 青春、青年 |
+| `adult` | 成年 | 13–18 | 18–23 歲 | 成年季立繪；還沒畫的年仍回青年 `s5` |
+
+`scripts/age_looks.gd` 的 `band_for_year`／`band_for_age` 做這張表。解析時先找該段的檔，沒有就退回現在這一張。檔放進下面的路徑就會被用到，不用再改程式：
+
+| 誰 | 該段的檔 | 現在的退路 |
+|----|----------|------------|
+| 遠行全家福 | `assets/travel/{dest}_{band}.jpg` | `assets/travel/travel_{dest}_family.jpg` |
+| 女兒主畫面 | `assets/family/daughter_{band}.png` | 既有季立繪 `wardrobe_path_for_year_season`（已經按階段換） |
+| 媽媽立牌 | `assets/family/mom_{band}_cutout.png` | `assets/family/mom_fullbody_cutout.png` |
+| 媽媽對話半身 | `assets/family/mom_{band}_bust.png` | `assets/family/mom_bust_cutout.png` |
+| 爸爸 | `assets/family/dad_{band}.png` | 還沒有立繪，解析結果是空的，畫面上也還沒有他的位子 |
+| 相簿合照 | `assets/family/family_{band}.jpg` | `assets/family/family_photo_child.jpg` |
+
+`{dest}` 是 `china`／`japan`／`asia`／`europe`／`australia`。同名的 png 也可以。新局種下的那張合照走第 1 年（幼年），所以現在仍是童年全家福那一張。
+
+主畫面女兒已改問 `AgeLooks.daughter_portrait`，媽媽立牌與對話改問 `mom_pin`／`mom_portrait`。在專屬圖缺檔的時候，玩家看到的還是現在這些圖。爸爸沒有畫面可接。這不是把六階季立繪收成五張；季立繪仍是女兒的退路。
+
+### 相簿放大
+
+累積相簿每一張拍立得（整張卡片，含縮圖）都可以點。全螢幕淡粉遮罩上是較大的照片（維持比例）、標題與內文；點外面、按「闔上 ♡」、或 Esc 關掉。粉紅日記面板，跟手帳同一套。年末回顧左側拼貼走同一層放大（`UiStyle.show_diary_lightbox`），點一下攤開那一頁的摘要。
+
+### 地點彈窗
+
+地圖六個地方（住家、學校、公園、商店街、診所、文化中心）的彈窗，由上到下是：
+
+1. 一張寬插畫，維持比例、圓角裁切（`PLACES` 的 `art`）
+2. 標題列：既有圖釘小圖（`assets/pins/`）加上地點名與事件標題
+3. 短字貼紙，語氣貼著那個地方（住家「♡ 家」、學校「書本」、商店街「袋子」這類）
+4. 原本的地點說明、事件內文、數值與「在這裡安排活動」
+5. 「好的 ♡」。點暗處一樣關得掉
+
+| 地點 | 圖 |
+|------|-----|
+| 住家 | `assets/places/place_home.jpg` |
+| 學校 | `assets/places/place_school.jpg` |
+| 公園 | `assets/places/place_park.jpg` |
+| 商店街 | `assets/places/place_shops.jpg` |
+| 診所 | `assets/places/place_clinic.jpg` |
+| 文化中心 | `assets/places/place_culture.jpg` |
+
+**狀態**：Phase B；smoke 覆蓋五張遠行圖的路徑與檔案、`thumb_for` 在各年齡段都退回那張圖、五段年份對照、媽媽／女兒／合照的缺檔退路、相簿放大層的開啟與 Esc、六個地點的插畫、圖釘與貼紙。沒有補畫年齡段新圖，沒有升學畫面，沒有重匯網頁版。
 

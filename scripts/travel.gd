@@ -3,15 +3,16 @@ extends RefCounted
 ## 每兩年一次的遠行：第 2、4、6、8、10、12 年。
 ## 夏天進入主畫面時先問要不要出發；可留到冬天，或今年不去。
 ## 不取代每季三個活動格（「短途旅行」仍是普通休閒活動）。
-##
-## TODO: Japan / Asia / Europe / Australia have no dedicated stills yet.
-## Their album thumbs temporarily reuse assets/family/family_photo_child.jpg.
-## China uses assets/travel/travel_china_family.jpg.
+## 每個目的地用自己的全家福。相簿與短過場走 thumb_for（age_bands_family）。
+## TODO(age_bands_family): 幼年／國小／國中／高中／成年 的專屬圖還沒畫。
+## 檔名 assets/travel/{id}_{band}.jpg。缺檔時 thumb_for 退回下面這張。
 
 const TRAVEL_YEARS: Array[int] = [2, 4, 6, 8, 10, 12]
 const THUMB_CHINA := "res://assets/travel/travel_china_family.jpg"
-## TODO: replace with destination art when those trips are illustrated.
-const THUMB_FAMILY_TEMP := "res://assets/family/family_photo_child.jpg"
+const THUMB_JAPAN := "res://assets/travel/travel_japan_family.jpg"
+const THUMB_ASIA := "res://assets/travel/travel_asia_family.jpg"
+const THUMB_EUROPE := "res://assets/travel/travel_europe_family.jpg"
+const THUMB_AUSTRALIA := "res://assets/travel/travel_australia_family.jpg"
 
 const DESTINATIONS: Array = [
 	{
@@ -35,8 +36,7 @@ const DESTINATIONS: Array = [
 		"min_year": 7,
 		"cost": 4200,
 		"with_mom": true,
-		# TODO: dedicated Japan trip art. Temporary thumb is the childhood family photo.
-		"thumb": THUMB_FAMILY_TEMP,
+		"thumb": THUMB_JAPAN,
 		"blurb": "電車、石階、便利商店的熱茶。",
 		"lock_hint": "國中以後開放（第 7 年・約 12 歲）",
 		"vignette_title": "神社石階上",
@@ -50,8 +50,7 @@ const DESTINATIONS: Array = [
 		"min_year": 10,
 		"cost": 5400,
 		"with_mom": true,
-		# TODO: dedicated Asia trip art. Temporary thumb is the childhood family photo.
-		"thumb": THUMB_FAMILY_TEMP,
+		"thumb": THUMB_ASIA,
 		"blurb": "另一座城市的夜市與海風。",
 		"lock_hint": "稍後幾年開放（第 10 年・約 15 歲）",
 		"vignette_title": "夜市燈下",
@@ -65,8 +64,7 @@ const DESTINATIONS: Array = [
 		"min_year": 10,
 		"cost": 7600,
 		"with_mom": true,
-		# TODO: dedicated Europe trip art. Temporary thumb is the childhood family photo.
-		"thumb": THUMB_FAMILY_TEMP,
+		"thumb": THUMB_EUROPE,
 		"blurb": "很長的飛行，很短的散步。石頭路與麵包香。",
 		"lock_hint": "稍後幾年開放（第 10 年・約 15 歲）",
 		"vignette_title": "石板路上的黃昏",
@@ -80,8 +78,7 @@ const DESTINATIONS: Array = [
 		"min_year": 10,
 		"cost": 6800,
 		"with_mom": true,
-		# TODO: dedicated Australia trip art. Temporary thumb is the childhood family photo.
-		"thumb": THUMB_FAMILY_TEMP,
+		"thumb": THUMB_AUSTRALIA,
 		"blurb": "季節是反的。天很寬，風走很遠也不累。",
 		"lock_hint": "稍後幾年開放（第 10 年・約 15 歲）",
 		"vignette_title": "季節相反的天空",
@@ -112,6 +109,13 @@ static func get_dest(dest_id: String) -> Dictionary:
 		if str(d.get("id", "")) == dest_id:
 			return d
 	return {}
+
+
+## Family still for this destination at this game year.
+## Band files are optional; the destination JPG is the fallback for every band.
+static func thumb_for(dest_id: String, year: int) -> String:
+	var dest := get_dest(dest_id)
+	return AgeLooks.travel_thumb(dest_id, year, str(dest.get("thumb", "")))
 
 
 ## Age unlock only. Cash is a separate lock (see lock_reason).
@@ -203,7 +207,7 @@ static func depart(state, dest_id: String) -> Dictionary:
 	state.apply_map_event_delta(deltas)
 	var title := str(dest.get("vignette_title", dest.get("title", "遠行")))
 	var body := Mom._named(state, str(dest.get("vignette_body", "")))
-	var thumb := str(dest.get("thumb", ""))
+	var thumb := thumb_for(dest_id, y)
 	state.append_album_entry({
 		"id": "travel_%s_y%d" % [dest_id, y],
 		"year": y,

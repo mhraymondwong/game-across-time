@@ -29,6 +29,11 @@ var _popup_layer: CanvasLayer
 var _popup_panel: PanelContainer
 var _popup_title: Label
 var _popup_body: Control
+var _popup_banner_frame: PanelContainer
+var _popup_banner: TextureRect
+var _popup_pin: TextureRect
+var _popup_chips: HFlowContainer
+var _round_shader: Shader
 var _activity_popup: PanelContainer
 var _activity_title: Label
 var _activity_list: VBoxContainer
@@ -74,31 +79,43 @@ var _adult_layer: CanvasLayer
 const PLACES := [
 	{
 		"id": "home", "name": "住家", "pin": "res://assets/pins/home.png",
+		"art": "res://assets/places/place_home.jpg",
+		"chips": ["♡ 家", "燈火", "熱湯"],
 		"pos": Vector2(0.10, 0.46), "color": Color("F5C6C0"),
 		"text": "你們的家。溫暖、有點雜亂，冰箱上貼著學校通知。\n可在日記裡安排家務與休息。"
 	},
 	{
 		"id": "school", "name": "學校", "pin": "res://assets/pins/school.png",
+		"art": "res://assets/places/place_school.jpg",
+		"chips": ["書本", "鐘聲", "操場"],
 		"pos": Vector2(0.55, 0.16), "color": Color("C9B8E8"),
 		"text": "小鎮小學／中學。鐘聲準時，操場邊有老榕樹。\n學習、校園園藝與小義工多在這裡展開。"
 	},
 	{
 		"id": "park", "name": "公園", "pin": "res://assets/pins/park.png",
+		"art": "res://assets/places/place_park.jpg",
+		"chips": ["✿ 花", "散步", "樹蔭"],
 		"pos": Vector2(0.40, 0.54), "color": Color("B8E0B0"),
 		"text": "春天花多、秋天落葉。傍晚常有街坊散步。\n適合休閒與偶發邂逅。"
 	},
 	{
 		"id": "shops", "name": "商店街", "pin": "res://assets/pins/shops.png",
+		"art": "res://assets/places/place_shops.jpg",
+		"chips": ["袋子", "麵包", "週末"],
 		"pos": Vector2(0.22, 0.34), "color": Color("F0D4A8"),
 		"text": "麵包店、文具行、制服店。週末人潮較多。\n小時候可跟家人去市集幫忙；長大後才有打工。"
 	},
 	{
 		"id": "clinic", "name": "診所", "pin": "res://assets/pins/clinic.png",
+		"art": "res://assets/places/place_clinic.jpg",
+		"chips": ["診療", "健康", "白袍"],
 		"pos": Vector2(0.28, 0.18), "color": Color("B8D4E8"),
 		"text": "社區診所。王醫師認識鎮上每一個孩子。\n可安排健康檢查；年紀到了，也能來當暑期小義工。"
 	},
 	{
 		"id": "culture", "name": "文化中心", "pin": "res://assets/pins/culture.png",
+		"art": "res://assets/places/place_culture.jpg",
+		"chips": ["劇場", "閱讀", "社團"],
 		"pos": Vector2(0.62, 0.42), "color": Color("F0C8C0"),
 		"text": "圖書館、小劇場、社區課程。\n才藝與社團多在這裡。"
 	},
@@ -473,7 +490,7 @@ func _update_daughter_art() -> void:
 	if _girl == null:
 		return
 	var stage := GameConfig.growth_stage_for_year(GameState.year)
-	var path := GameConfig.wardrobe_path_for_year_season(GameState.year, GameState.season)
+	var path := AgeLooks.daughter_portrait(GameState.year, GameState.season)
 	var tex: Texture2D = null
 	if path != "" and (ResourceLoader.exists(path) or FileAccess.file_exists(ProjectSettings.globalize_path(path))):
 		tex = load(path) if ResourceLoader.exists(path) else null
@@ -495,6 +512,7 @@ func _update_daughter_art() -> void:
 	_girl.set_meta("growth_stage", stage)
 	_girl.set_meta("wardrobe_path", path)
 	_girl.set_meta("art_band", GameConfig.age_art_band(GameState.get_age()))
+	_girl.set_meta("age_band", AgeLooks.band_for_year(GameState.year))
 
 
 func _reposition_girl() -> void:
@@ -608,29 +626,74 @@ func _toggle_drawer() -> void:
 
 func _make_popup_shell(title_text: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(480, 300)
+	panel.custom_minimum_size = Vector2(720, 560)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -240
-	panel.offset_right = 240
-	panel.offset_top = -180
-	panel.offset_bottom = 180
-	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
+	panel.offset_left = -370
+	panel.offset_right = 370
+	panel.offset_top = -320
+	panel.offset_bottom = 320
+	var shell := UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22)
+	shell.content_margin_left = 14
+	shell.content_margin_right = 14
+	shell.content_margin_top = 12
+	shell.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", shell)
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
+
+	_popup_banner_frame = PanelContainer.new()
+	var banner_style := StyleBoxFlat.new()
+	banner_style.bg_color = Color("FFF8FA")
+	banner_style.set_corner_radius_all(18)
+	banner_style.set_content_margin_all(0)
+	_popup_banner_frame.add_theme_stylebox_override("panel", banner_style)
+	_popup_banner_frame.clip_contents = true
+	_popup_banner_frame.visible = false
+	v.add_child(_popup_banner_frame)
+
+	_popup_banner = TextureRect.new()
+	_popup_banner.custom_minimum_size = Vector2(0, 180)
+	_popup_banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_popup_banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_popup_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_popup_banner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_popup_banner_frame.add_child(_popup_banner)
+	_apply_round_corners(_popup_banner, 18.0)
+
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 10)
+	title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(title_row)
+
+	_popup_pin = TextureRect.new()
+	_popup_pin.custom_minimum_size = Vector2(36, 42)
+	_popup_pin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_popup_pin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_popup_pin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_row.add_child(_popup_pin)
 
 	_popup_title = Label.new()
 	_popup_title.text = title_text
-	_popup_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	UiStyle.apply_label(_popup_title, 24)
-	v.add_child(_popup_title)
+	_popup_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_popup_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_popup_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(_popup_title, 22)
+	title_row.add_child(_popup_title)
+
+	_popup_chips = HFlowContainer.new()
+	_popup_chips.add_theme_constant_override("h_separation", 6)
+	_popup_chips.add_theme_constant_override("v_separation", 6)
+	_popup_chips.alignment = FlowContainer.ALIGNMENT_CENTER
+	v.add_child(_popup_chips)
 
 	_popup_body = VBoxContainer.new()
 	_popup_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_popup_body.add_theme_constant_override("separation", 8)
 	v.add_child(_popup_body)
 
 	var close := Button.new()
@@ -682,6 +745,88 @@ func _make_activity_popup() -> PanelContainer:
 	return panel
 
 
+func _clear_box(box: Node) -> void:
+	if box == null:
+		return
+	for c in box.get_children():
+		box.remove_child(c)
+		c.free()
+
+
+func _make_place_chip(text: String, tint: Color) -> PanelContainer:
+	var wrap := PanelContainer.new()
+	var fill := Color(tint.r, tint.g, tint.b, 0.95)
+	var sb := UiStyle.button_style(fill, Color("E8A0B4"), 14)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	wrap.add_theme_stylebox_override("panel", sb)
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiStyle.apply_label(lbl, 13)
+	wrap.add_child(lbl)
+	return wrap
+
+
+func _load_ui_tex(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if ResourceLoader.exists(path):
+		var loaded = load(path)
+		if loaded is Texture2D:
+			return loaded
+	var abs_path := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(abs_path):
+		var img := Image.load_from_file(abs_path)
+		if img:
+			return ImageTexture.create_from_image(img)
+	return null
+
+
+func _apply_round_corners(tex: TextureRect, radius: float) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if _round_shader == null:
+		_round_shader = Shader.new()
+		_round_shader.code = """shader_type canvas_item;
+uniform vec2 rect_size = vec2(680.0, 180.0);
+uniform float radius = 18.0;
+void fragment() {
+	vec4 tex = texture(TEXTURE, UV);
+	vec2 px = UV * rect_size;
+	vec2 half_size = rect_size * 0.5;
+	vec2 q = abs(px - half_size) - (half_size - vec2(radius));
+	float dist = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0);
+	if (dist > radius) {
+		tex.a = 0.0;
+	}
+	COLOR = tex;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = _round_shader
+	mat.set_shader_parameter("rect_size", Vector2(680, 180))
+	mat.set_shader_parameter("radius", radius)
+	tex.material = mat
+	if not tex.resized.is_connected(_sync_banner_radius):
+		tex.resized.connect(_sync_banner_radius)
+
+
+func _sync_banner_radius() -> void:
+	if _popup_banner == null:
+		return
+	var mat := _popup_banner.material as ShaderMaterial
+	if mat == null:
+		return
+	var sz := _popup_banner.size
+	if sz.x < 2.0 or sz.y < 2.0:
+		return
+	mat.set_shader_parameter("rect_size", sz)
+
+
 func _show_place_popup(p: Dictionary) -> void:
 	_hide_popups()
 	_popup_layer.get_node("Dim").visible = true
@@ -693,8 +838,21 @@ func _show_place_popup(p: Dictionary) -> void:
 	if typeof(raw_d) == TYPE_DICTIONARY:
 		deltas = raw_d
 	_popup_title.text = "%s · %s" % [place_name, str(ev.get("title", ""))]
-	for c in _popup_body.get_children():
-		c.queue_free()
+	var art_tex := _load_ui_tex(str(p.get("art", "")))
+	if art_tex == null:
+		_popup_banner.texture = null
+		_popup_banner_frame.visible = false
+	else:
+		_popup_banner.texture = art_tex
+		_popup_banner_frame.visible = true
+	_popup_pin.texture = _load_ui_tex(str(p.get("pin", "")))
+	_clear_box(_popup_chips)
+	var chip_tint: Color = p.get("color", Color("FFD0E4"))
+	var chip_list = p.get("chips", [])
+	if typeof(chip_list) == TYPE_ARRAY:
+		for chip_text in chip_list:
+			_popup_chips.add_child(_make_place_chip(str(chip_text), chip_tint))
+	_clear_box(_popup_body)
 	var intro := Label.new()
 	intro.text = str(p.get("text", ""))
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1245,11 +1403,14 @@ func _refresh_mom() -> void:
 	_mom_card.visible = present
 	if not present:
 		return
-	if _mom_tex != null and _mom_tex.texture == null:
-		var tex := _load_tex(Mom.PIN_PATH)
-		_mom_tex.texture = tex
-		if _mom_shadow != null:
-			_mom_shadow.texture = tex
+	if _mom_tex != null:
+		var pin_path := AgeLooks.mom_pin(GameState.year)
+		if str(_mom_tex.get_meta("look_path", "")) != pin_path:
+			var tex := _load_tex(pin_path)
+			_mom_tex.texture = tex
+			_mom_tex.set_meta("look_path", pin_path)
+			if _mom_shadow != null:
+				_mom_shadow.texture = tex
 
 
 func _on_mom_pressed() -> void:
@@ -1257,8 +1418,11 @@ func _on_mom_pressed() -> void:
 		return
 	_hide_popups()
 	_popup_layer.get_node("Dim").visible = true
-	if _mom_portrait != null and _mom_portrait.texture == null:
-		_mom_portrait.texture = _load_tex(Mom.PORTRAIT_PATH)
+	if _mom_portrait != null:
+		var bust_path := AgeLooks.mom_portrait(GameState.year)
+		if str(_mom_portrait.get_meta("look_path", "")) != bust_path:
+			_mom_portrait.texture = _load_tex(bust_path)
+			_mom_portrait.set_meta("look_path", bust_path)
 	_mom_line.text = Mom.advance_dialogue(GameState)
 	_refresh_mom_help_label()
 	_mom_popup.visible = true

@@ -147,7 +147,7 @@ static func seed_family_album(state) -> void:
 		"year": 1,
 		"season": 0,
 		"title": "門前的一家三口",
-		"thumb_path": FAMILY_PHOTO_PATH,
+		"thumb_path": AgeLooks.family_photo(int(state.year)),
 		"body": _named(state, "爸爸、媽媽，和還小的%s，站在花圃與石板路前。風很輕，三個人都在笑。這張照片從一開始就貼在相簿裡。"),
 	})
 

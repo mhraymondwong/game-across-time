@@ -619,6 +619,16 @@ func _run() -> void:
 		"res://assets/family/mom_portrait.jpg",
 		"res://assets/family/family_photo_child.jpg",
 		"res://assets/travel/travel_china_family.jpg",
+		"res://assets/travel/travel_japan_family.jpg",
+		"res://assets/travel/travel_asia_family.jpg",
+		"res://assets/travel/travel_europe_family.jpg",
+		"res://assets/travel/travel_australia_family.jpg",
+		"res://assets/places/place_home.jpg",
+		"res://assets/places/place_school.jpg",
+		"res://assets/places/place_park.jpg",
+		"res://assets/places/place_shops.jpg",
+		"res://assets/places/place_clinic.jpg",
+		"res://assets/places/place_culture.jpg",
 	]:
 		if not FileAccess.file_exists(ProjectSettings.globalize_path(rel)):
 			printerr("[smoke] FAIL missing art %s" % rel)
@@ -652,7 +662,7 @@ func _run() -> void:
 	elif Mom.PIN_PATH.ends_with("mom_portrait.jpg") or Mom.PORTRAIT_PATH.ends_with("mom_portrait.jpg"):
 		printerr("[smoke] FAIL hub/dialogue still use mom_portrait.jpg")
 		phase10_ok = false
-	elif hub_src.contains("mom_portrait.jpg") or not hub_src.contains("Mom.PIN_PATH"):
+	elif hub_src.contains("mom_portrait.jpg") or not hub_src.contains("AgeLooks.mom_pin"):
 		printerr("[smoke] FAIL hub pin not on the fullbody cutout")
 		phase10_ok = false
 	elif hub_src.contains("border_width_bottom = 16"):
@@ -668,8 +678,14 @@ func _run() -> void:
 		else:
 			print("[smoke] cutout alpha %s OK" % cut)
 	var travel_src := FileAccess.get_file_as_string("res://scripts/travel.gd")
-	if not travel_src.contains("TODO"):
-		printerr("[smoke] FAIL travel placeholder art missing TODO")
+	if travel_src.contains("THUMB_FAMILY_TEMP") or travel_src.contains("family_photo_child.jpg") or travel_src.contains("Temporary thumb"):
+		printerr("[smoke] FAIL travel still uses placeholder art")
+		phase10_ok = false
+	if not travel_src.contains("thumb_for") or not travel_src.contains("age_bands_family"):
+		printerr("[smoke] FAIL travel thumbs not age-banded")
+		phase10_ok = false
+	if load("res://scripts/age_looks.gd") == null:
+		printerr("[smoke] FAIL age_looks script")
 		phase10_ok = false
 	for y_on in [2, 4, 6, 8, 10, 12]:
 		if not Travel.is_travel_year(y_on):
@@ -798,12 +814,61 @@ func _run() -> void:
 		phase10_ok = false
 	else:
 		print("[smoke] destination arc OK")
-	if not str(Travel.get_dest("china").get("thumb", "")).ends_with("travel_china_family.jpg"):
-		printerr("[smoke] FAIL china thumb")
+	var thumb_expect := {
+		"china": "travel_china_family.jpg",
+		"japan": "travel_japan_family.jpg",
+		"asia": "travel_asia_family.jpg",
+		"europe": "travel_europe_family.jpg",
+		"australia": "travel_australia_family.jpg",
+	}
+	for dest_id in thumb_expect:
+		var thumb_path := str(Travel.get_dest(str(dest_id)).get("thumb", ""))
+		var thumb_file: String = str(thumb_expect[dest_id])
+		if not thumb_path.ends_with(thumb_file):
+			printerr("[smoke] FAIL %s thumb %s" % [dest_id, thumb_path])
+			phase10_ok = false
+		elif not FileAccess.file_exists(ProjectSettings.globalize_path(thumb_path)):
+			printerr("[smoke] FAIL missing thumb file %s" % thumb_path)
+			phase10_ok = false
+	if phase10_ok:
+		print("[smoke] destination stills OK")
+	var band_expect := {
+		1: "early", 2: "early",
+		3: "elementary", 6: "elementary",
+		7: "junior", 8: "junior",
+		9: "senior", 12: "senior",
+		13: "adult", 18: "adult",
+	}
+	for yb in band_expect:
+		if AgeLooks.band_for_year(int(yb)) != str(band_expect[yb]):
+			printerr("[smoke] FAIL age band year %s -> %s" % [str(yb), AgeLooks.band_for_year(int(yb))])
+			phase10_ok = false
+	if AgeLooks.label_for_year(1) != "幼年" or AgeLooks.label_for_year(4) != "國小" or AgeLooks.label_for_year(7) != "國中" or AgeLooks.label_for_year(10) != "高中" or AgeLooks.label_for_year(16) != "成年":
+		printerr("[smoke] FAIL age band labels")
 		phase10_ok = false
-	if not str(Travel.get_dest("japan").get("thumb", "")).ends_with("family_photo_child.jpg"):
-		printerr("[smoke] FAIL japan temp thumb")
+	elif AgeLooks.band_for_age(6) != "early" or AgeLooks.band_for_age(12) != "junior" or AgeLooks.band_for_age(23) != "adult":
+		printerr("[smoke] FAIL age_for band")
 		phase10_ok = false
+	elif AgeLooks.mom_pin(3) != Mom.PIN_PATH or AgeLooks.mom_pin(14) != Mom.PIN_PATH or AgeLooks.mom_portrait(9) != Mom.PORTRAIT_PATH:
+		printerr("[smoke] FAIL mom band fallback pin=%s bust=%s" % [AgeLooks.mom_pin(3), AgeLooks.mom_portrait(9)])
+		phase10_ok = false
+	elif AgeLooks.dad_portrait(8) != "":
+		printerr("[smoke] FAIL dad portrait invented a file")
+		phase10_ok = false
+	elif not str(AgeLooks.family_photo(1)).ends_with("family_photo_child.jpg") or not str(AgeLooks.family_photo(15)).ends_with("family_photo_child.jpg"):
+		printerr("[smoke] FAIL family photo band fallback")
+		phase10_ok = false
+	elif AgeLooks.daughter_portrait(16, 2) != GameConfig.wardrobe_path_for_year_season(16, 2):
+		printerr("[smoke] FAIL daughter band fallback")
+		phase10_ok = false
+	elif Travel.thumb_for("japan", 2) != str(Travel.get_dest("japan").get("thumb", "")) or Travel.thumb_for("japan", 8) != Travel.thumb_for("japan", 18):
+		printerr("[smoke] FAIL japan thumb_for fallback")
+		phase10_ok = false
+	elif Travel.thumb_for("europe", 12) != str(Travel.get_dest("europe").get("thumb", "")):
+		printerr("[smoke] FAIL europe thumb_for")
+		phase10_ok = false
+	else:
+		print("[smoke] age_bands_family fallback OK")
 
 	gs.begin_new_game()
 	gs.year = 3
@@ -1517,6 +1582,159 @@ func _run() -> void:
 	if phase13_ok:
 		print("[smoke] adulthood OK")
 
+	# —— Phase B: travel stills are asserted above; lightbox + place popups ——
+	var phase14_ok := true
+	var album_src := FileAccess.get_file_as_string("res://scripts/album.gd")
+	var review_src := FileAccess.get_file_as_string("res://scripts/year_review.gd")
+	var style_src := FileAccess.get_file_as_string("res://scripts/ui_style.gd")
+	if not style_src.contains("show_diary_lightbox") or not album_src.contains("show_diary_lightbox") or not review_src.contains("show_diary_lightbox"):
+		printerr("[smoke] FAIL lightbox not wired")
+		phase14_ok = false
+	gs.begin_new_game()
+	gs.flags["tutorial_done"] = true
+	gs.flags["confide_rolled_1_0"] = true
+	gs.flags["mom_rolled_1_0"] = true
+	gs.flags["mom_present_1_0"] = false
+	var album_node: Node = load("res://scenes/album.tscn").instantiate()
+	root.add_child(album_node)
+	var album_card: Node = null
+	var seek: Array = [album_node]
+	while seek.size() > 0:
+		var seek_node: Node = seek.pop_back()
+		if seek_node.has_meta("album_entry"):
+			album_card = seek_node
+			break
+		for seek_child in seek_node.get_children():
+			seek.append(seek_child)
+	if album_card == null:
+		printerr("[smoke] FAIL album card missing")
+		phase14_ok = false
+	else:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		album_card.gui_input.emit(click)
+		var light := album_node.get_node_or_null("DiaryLightbox")
+		if light == null:
+			printerr("[smoke] FAIL album lightbox did not open")
+			phase14_ok = false
+		else:
+			var saw_photo := false
+			var saw_caption := false
+			var light_walk: Array = [light]
+			while light_walk.size() > 0:
+				var light_node: Node = light_walk.pop_back()
+				if light_node is TextureRect and (light_node as TextureRect).texture != null:
+					saw_photo = true
+				if light_node is Label and str(light_node.text).contains("門前的一家三口"):
+					saw_caption = true
+				for light_child in light_node.get_children():
+					light_walk.append(light_child)
+			if not saw_photo or not saw_caption:
+				printerr("[smoke] FAIL album lightbox photo=%s caption=%s" % [str(saw_photo), str(saw_caption)])
+				phase14_ok = false
+			var esc := InputEventKey.new()
+			esc.pressed = true
+			esc.echo = false
+			esc.keycode = KEY_ESCAPE
+			album_node._unhandled_input(esc)
+			if album_node.get_node_or_null("DiaryLightbox") != null:
+				printerr("[smoke] FAIL album lightbox Esc")
+				phase14_ok = false
+			else:
+				print("[smoke] album lightbox OK")
+	album_node.free()
+
+	var review_node: Node = load("res://scenes/year_review.tscn").instantiate()
+	root.add_child(review_node)
+	var review_panel: Node = null
+	var review_seek: Array = [review_node]
+	while review_seek.size() > 0:
+		var review_at: Node = review_seek.pop_back()
+		if review_at is PanelContainer:
+			for review_child in review_at.get_children():
+				if review_child is TextureRect and (review_child as TextureRect).custom_minimum_size.y >= 400:
+					review_panel = review_at
+					break
+		if review_panel != null:
+			break
+		for review_next in review_at.get_children():
+			review_seek.append(review_next)
+	if review_panel == null:
+		printerr("[smoke] FAIL year review collage missing")
+		phase14_ok = false
+	else:
+		var review_click := InputEventMouseButton.new()
+		review_click.button_index = MOUSE_BUTTON_LEFT
+		review_click.pressed = true
+		review_panel.gui_input.emit(review_click)
+		if review_node.get_node_or_null("DiaryLightbox") == null:
+			printerr("[smoke] FAIL year review lightbox")
+			phase14_ok = false
+		else:
+			var review_esc := InputEventKey.new()
+			review_esc.pressed = true
+			review_esc.echo = false
+			review_esc.keycode = KEY_ESCAPE
+			review_node._unhandled_input(review_esc)
+			if review_node.get_node_or_null("DiaryLightbox") != null:
+				printerr("[smoke] FAIL year review lightbox Esc")
+				phase14_ok = false
+			else:
+				print("[smoke] year review lightbox OK")
+	review_node.free()
+
+	var hub_place: Node = load("res://scenes/home_hub.tscn").instantiate()
+	root.add_child(hub_place)
+	var places: Array = load("res://scripts/home_hub.gd").PLACES
+	var place_ids := {}
+	if places.size() != 6:
+		printerr("[smoke] FAIL place count %d" % places.size())
+		phase14_ok = false
+	for place in places:
+		var pid := str(place.get("id", ""))
+		place_ids[pid] = true
+		var art := str(place.get("art", ""))
+		if not art.ends_with("place_%s.jpg" % pid) or not FileAccess.file_exists(ProjectSettings.globalize_path(art)):
+			printerr("[smoke] FAIL place art %s -> %s" % [pid, art])
+			phase14_ok = false
+		var chips = place.get("chips", [])
+		if typeof(chips) != TYPE_ARRAY or chips.is_empty():
+			printerr("[smoke] FAIL place chips %s" % pid)
+			phase14_ok = false
+		hub_place._show_place_popup(place)
+		if hub_place._popup_panel == null or not hub_place._popup_panel.visible:
+			printerr("[smoke] FAIL place popup hidden %s" % pid)
+			phase14_ok = false
+		elif hub_place._popup_banner == null or hub_place._popup_banner.texture == null or not hub_place._popup_banner_frame.visible:
+			printerr("[smoke] FAIL place banner %s" % pid)
+			phase14_ok = false
+		elif hub_place._popup_pin == null or hub_place._popup_pin.texture == null:
+			printerr("[smoke] FAIL place pin %s" % pid)
+			phase14_ok = false
+		elif hub_place._popup_chips.get_child_count() < 1:
+			printerr("[smoke] FAIL place chip row %s" % pid)
+			phase14_ok = false
+		elif not str(hub_place._popup_title.text).contains(str(place.get("name", ""))):
+			printerr("[smoke] FAIL place title %s" % pid)
+			phase14_ok = false
+		else:
+			var body_txt := ""
+			for body_node in hub_place._popup_body.get_children():
+				if body_node is Label:
+					body_txt += str(body_node.text)
+			if body_txt == "" or not hub_place._popup_title.text.contains("·"):
+				printerr("[smoke] FAIL place body %s" % pid)
+				phase14_ok = false
+	if place_ids.size() != 6 or not place_ids.has("home") or not place_ids.has("shops") or not place_ids.has("culture"):
+		printerr("[smoke] FAIL place ids %s" % str(place_ids.keys()))
+		phase14_ok = false
+	elif phase14_ok:
+		print("[smoke] place popups OK")
+	hub_place.free()
+	if phase14_ok:
+		print("[smoke] phase B lightbox + places OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -1553,7 +1771,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false
