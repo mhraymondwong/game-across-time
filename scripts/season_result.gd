@@ -50,10 +50,13 @@ func _ready() -> void:
 	v.add_child(title)
 
 	var time_lbl := Label.new()
-	var stage := GameConfig.growth_stage_for_year(GameState.year)
-	time_lbl.text = "%s · 階段 %d（%s）" % [
-		GameState.get_time_label(), stage, GameConfig.growth_stage_label(stage)
-	]
+	if GameConfig.is_adult_year(GameState.year):
+		time_lbl.text = GameState.get_time_label()
+	else:
+		var stage := GameConfig.growth_stage_for_year(GameState.year)
+		time_lbl.text = "%s · 階段 %d（%s）" % [
+			GameState.get_time_label(), stage, GameConfig.growth_stage_label(stage)
+		]
 	time_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	UiStyle.apply_label(time_lbl, 16, true)
 	v.add_child(time_lbl)
@@ -65,6 +68,16 @@ func _ready() -> void:
 	act_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(act_lbl, 15)
 	v.add_child(act_lbl)
+
+	var job_name := str(d.get("job_name", ""))
+	if job_name != "":
+		var job_lbl := Label.new()
+		job_lbl.text = "平日工作：%s（本季薪水 $%d）　·　%s" % [
+			job_name, int(d.get("job_cash", 0)), Adulthood.romance_line(GameState)
+		]
+		job_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(job_lbl, 15)
+		v.add_child(job_lbl)
 
 	if not GameState.last_vignettes.is_empty():
 		var hi := ActivityScenes.highlight_index(GameState.last_vignettes)

@@ -9,7 +9,7 @@ func _ready() -> void:
 		review = {
 			"year": GameState.year,
 			"age": GameState.get_age(),
-			"stage_label": GameConfig.growth_stage_label(GameConfig.growth_stage_for_year(GameState.year)),
+			"stage_label": GameConfig.life_phase_label(GameState.year),
 			"deltas": {},
 			"highlights": ["還沒有貼上回憶呢。"],
 			"polaroid_band": GameConfig.polaroid_band_for_age(GameState.get_age()),

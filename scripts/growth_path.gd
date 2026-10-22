@@ -60,6 +60,13 @@ const ACTIVITY_GAINS: Dictionary = {
 	"health_clinic": {"skills": {}, "tags": {"service": 1, "stem": 1}},
 	"festival_helper": {"skills": {}, "tags": {"service": 1, "art": 1}},
 	"school_class_helper": {"skills": {}, "tags": {"service": 1, "letters": 1}},
+	"date_cook": {"skills": {"cook": 1}, "tags": {"service": 1}},
+	"study_night": {"skills": {}, "tags": {"stem": 1, "letters": 1}},
+	"study_license": {"skills": {}, "tags": {"stem": 1, "letters": 1}},
+	"study_portfolio": {"skills": {"paint": 1}, "tags": {"art": 2}},
+	"work_colleagues": {"skills": {}, "tags": {"service": 1}},
+	"work_side": {"skills": {}, "tags": {"business": 1, "art": 1}},
+	"family_meet": {"skills": {"cook": 1}, "tags": {"service": 1}},
 }
 
 ## Tag match: first place +3, second place +1. Best listed skill: lv1 +1, lv2 +2, lv3 +3. Cap 6.

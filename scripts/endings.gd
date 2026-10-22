@@ -6,7 +6,7 @@ extends RefCounted
 static func all() -> Array:
 	return [
 		{"id": "burnout", "name": "喘不過氣的日子", "priority": 100,
-			"summary": "十二年走得好累。她仍被你愛著，但需要好好休息，重新找回步伐。"},
+			"summary": "十八年走得好累。她仍被你愛著，但需要好好休息，重新找回步伐。"},
 		{"id": "doctor", "name": "社區診所的白袍", "priority": 90,
 			"summary": "她通過考試，回到小鎮診所實習。街坊叫她「小醫生」，你坐在候診椅上，驕傲得說不出話。"},
 		{"id": "teacher", "name": "溫柔的黑板燈", "priority": 88,
@@ -26,9 +26,9 @@ static func all() -> Array:
 		{"id": "wanderer", "name": "行李裡的地圖", "priority": 65,
 			"summary": "她收拾背包去遠方追夢，約定每個季節寄一張明信片回來。你把明信片貼滿廚房牆。"},
 		{"id": "town_bond", "name": "被記住的名字", "priority": 20,
-			"summary": "她沒有急著遠走。小鎮裡有人叫得出她的名字，十二年就這樣變得具體。"},
+			"summary": "她沒有急著遠走。小鎮裡有人叫得出她的名字，十八年就這樣變得具體。"},
 		{"id": "ordinary_happy", "name": "普通而確實的幸福", "priority": 10,
-			"summary": "沒有轟轟烈烈的頭銜。她有工作、有朋友、有你。十二年，夠了。"},
+			"summary": "沒有轟轟烈烈的頭銜。她有工作、有朋友、有你。十八年，夠了。"},
 	]
 
 
@@ -43,12 +43,12 @@ static func evaluate(state: Node) -> Dictionary:
 		return list[-1]
 	var top_pri := int(matched[0].get("priority", 0))
 	var best: Dictionary = matched[0]
-	var best_score := top_pri + GrowthPath.ending_bonus(str(best.get("id", "")), state)
+	var best_score := top_pri + GrowthPath.ending_bonus(str(best.get("id", "")), state) + Adulthood.career_bonus(str(best.get("id", "")), state)
 	for e in matched:
 		var pri := int(e.get("priority", 0))
 		if top_pri - pri > GrowthPath.BIAS_WINDOW:
 			continue
-		var score := pri + GrowthPath.ending_bonus(str(e.get("id", "")), state)
+		var score := pri + GrowthPath.ending_bonus(str(e.get("id", "")), state) + Adulthood.career_bonus(str(e.get("id", "")), state)
 		if score > best_score:
 			best = e
 			best_score = score
@@ -59,6 +59,11 @@ static func evaluate(state: Node) -> Dictionary:
 		var aside := TownNpcs.ending_aside(state)
 		if aside != "":
 			chosen["summary"] = str(chosen.get("summary", "")) + aside
+	chosen["life_line"] = Adulthood.life_aside(state)
+	chosen["life_chip"] = Adulthood.life_chip(state)
+	chosen["adult_job"] = str(state.adult_job)
+	chosen["romance"] = int(state.romance)
+	chosen["family_settled"] = bool(state.family_settled)
 	return chosen
 
 

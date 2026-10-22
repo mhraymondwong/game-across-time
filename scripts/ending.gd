@@ -81,7 +81,7 @@ func _ready() -> void:
 	left.add_child(credits)
 
 	var after := Label.new()
-	after.text = "十二年之後"
+	after.text = "十八年之後"
 	after.add_theme_font_size_override("font_size", 16)
 	after.add_theme_color_override("font_color", Color(1.0, 0.82, 0.88, 0.75))
 	credits.add_child(after)
@@ -99,6 +99,24 @@ func _ready() -> void:
 	summary.add_theme_font_size_override("font_size", 17)
 	summary.add_theme_color_override("font_color", Color(0.96, 0.90, 0.93, 0.88))
 	credits.add_child(summary)
+
+	var life := str(ending.get("life_line", ""))
+	if life != "":
+		var life_lbl := Label.new()
+		life_lbl.text = life
+		life_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		life_lbl.custom_minimum_size = Vector2(520, 0)
+		life_lbl.add_theme_font_size_override("font_size", 16)
+		life_lbl.add_theme_color_override("font_color", Color(1.0, 0.86, 0.90, 0.9))
+		credits.add_child(life_lbl)
+
+	var chip := str(ending.get("life_chip", ""))
+	if chip != "":
+		var chip_lbl := Label.new()
+		chip_lbl.text = chip
+		chip_lbl.add_theme_font_size_override("font_size", 15)
+		chip_lbl.add_theme_color_override("font_color", Color(0.98, 0.80, 0.86, 0.8))
+		credits.add_child(chip_lbl)
 
 	var muted := Label.new()
 	muted.text = "共度過 %d 個月　·　家計 $%d" % [GameState.months_played, int(stats.get("cash", 0))]

@@ -1,5 +1,5 @@
 extends SceneTree
-## Headless: play all 144 months, reach an ending, exit 0
+## Headless: play all 216 months, reach an ending, exit 0
 ## Usage: godot --headless --path <project> --script res://scripts/smoke_test.gd
 
 
@@ -383,7 +383,7 @@ func _run() -> void:
 	else:
 		print("[smoke] continue_after_year_review → hub OK")
 
-	# Winter year 12 → year_review then ending
+	# Winter year 12 → year_review, then the first adult year (ending waits for year 18)
 	gs.begin_new_game()
 	gs.year = 12
 	gs.season = 3
@@ -395,23 +395,61 @@ func _run() -> void:
 		yr_ok = false
 	else:
 		print("[smoke] winter y12 → year_review OK")
-	if not gs.pending_ending_after_review:
-		printerr("[smoke] FAIL: pending_ending_after_review should be true")
+	if gs.pending_ending_after_review:
+		printerr("[smoke] FAIL: pending_ending should stay false after y12")
+		yr_ok = false
+	elif int(gs.year) != 13:
+		printerr("[smoke] FAIL: after y12 winter expect year 13 got %d" % gs.year)
+		yr_ok = false
+	elif str(gs.last_year_review.get("stage_label", "")) != "青年":
+		printerr("[smoke] FAIL: y12 stage_label expect 青年 got %s" % str(gs.last_year_review.get("stage_label", "")))
 		yr_ok = false
 	else:
-		print("[smoke] pending_ending_after_review set OK")
+		print("[smoke] y12 continues into adulthood OK")
 	if int(gs.last_year_review.get("year", -1)) != 12:
 		printerr("[smoke] FAIL: review year expect 12")
 		yr_ok = false
 	var cont12: String = gs.continue_after_year_review()
-	if cont12 != "ending":
-		printerr("[smoke] FAIL: continue after y12 expect ending got %s" % cont12)
+	if cont12 != "hub":
+		printerr("[smoke] FAIL: continue after y12 expect hub got %s" % cont12)
+		yr_ok = false
+	elif gs.is_game_over:
+		printerr("[smoke] FAIL: game should still be running after y12")
 		yr_ok = false
 	else:
-		print("[smoke] continue_after_year_review → ending OK")
-	if not gs.is_game_over:
-		printerr("[smoke] FAIL: is_game_over after y12 review continue")
+		print("[smoke] continue_after_year_review y12 → hub OK")
+
+	# Winter year 18 → year_review then ending
+	gs.begin_new_game()
+	gs.year = 18
+	gs.season = 3
+	gs.snapshot_year_start()
+	gs.adult_job = "shop_staff"
+	gs.year_activity_names = ["黃昏散步"]
+	var next18: String = gs.advance_after_season()
+	if next18 != "year_review":
+		printerr("[smoke] FAIL: winter y18 expect year_review got %s" % next18)
 		yr_ok = false
+	elif not gs.pending_ending_after_review:
+		printerr("[smoke] FAIL: pending_ending_after_review should be true at end of y18")
+		yr_ok = false
+	elif int(gs.last_year_review.get("year", -1)) != 18:
+		printerr("[smoke] FAIL: review year expect 18")
+		yr_ok = false
+	elif str(gs.last_year_review.get("stage_label", "")) != "成年":
+		printerr("[smoke] FAIL: y18 stage_label expect 成年 got %s" % str(gs.last_year_review.get("stage_label", "")))
+		yr_ok = false
+	else:
+		print("[smoke] winter y18 → year_review, pending ending OK")
+	var cont18: String = gs.continue_after_year_review()
+	if cont18 != "ending":
+		printerr("[smoke] FAIL: continue after y18 expect ending got %s" % cont18)
+		yr_ok = false
+	elif not gs.is_game_over:
+		printerr("[smoke] FAIL: is_game_over after y18 review continue")
+		yr_ok = false
+	else:
+		print("[smoke] continue_after_year_review y18 → ending OK")
 
 
 	# —— Phase 7: ending art paths + radar helper ——
@@ -1238,6 +1276,247 @@ func _run() -> void:
 	if phase12_ok:
 		print("[smoke] skills + tags OK")
 
+	var phase13_ok := true
+	var adult_art := GameConfig.wardrobe_path_for_year_season(16, 2)
+	var youth_art := GameConfig.wardrobe_path(5, 2)
+	if adult_art == "":
+		printerr("[smoke] FAIL adult portrait path empty")
+		phase13_ok = false
+	elif not adult_art.contains("adult_y16_") and adult_art != youth_art:
+		printerr("[smoke] FAIL adult portrait should reuse youth or adult_y16, got %s" % adult_art)
+		phase13_ok = false
+	else:
+		print("[smoke] adult portrait fallback %s OK" % adult_art)
+	var cfg_src := FileAccess.get_file_as_string("res://scripts/config.gd")
+	if not cfg_src.contains("adult_y") or not cfg_src.contains("TODO"):
+		printerr("[smoke] FAIL adult portrait TODO missing")
+		phase13_ok = false
+	if GameConfig.life_phase_label(18) != "成年" or GameConfig.age_for_year(18) != 23 or GameConfig.age_for_year(13) != 18:
+		printerr("[smoke] FAIL adult age/phase")
+		phase13_ok = false
+	if GameConfig.TOTAL_YEARS != 18 or GameConfig.TOTAL_MONTHS != 216:
+		printerr("[smoke] FAIL year length")
+		phase13_ok = false
+
+	gs.begin_new_game()
+	gs.year = 12
+	if Activities.is_available("date_walk", gs) or Activities.shown_in_picker("date_walk", gs):
+		printerr("[smoke] FAIL dating should wait for adulthood")
+		phase13_ok = false
+	if not Activities.is_available("study_piano", gs):
+		printerr("[smoke] FAIL piano should still be open in year 12")
+		phase13_ok = false
+	gs.year = 13
+	gs.mood = 70
+	gs.cash = 8000
+	if not Activities.is_available("date_walk", gs) or not Activities.shown_in_picker("date_walk", gs):
+		printerr("[smoke] FAIL date_walk should open in year 13")
+		phase13_ok = false
+	if Activities.is_available("study_piano", gs) or Activities.shown_in_picker("study_library", gs):
+		printerr("[smoke] FAIL school months should leave the adult picker")
+		phase13_ok = false
+	if Activities.shown_in_picker("rest_park", gs) == false:
+		printerr("[smoke] FAIL rest should stay in the adult picker")
+		phase13_ok = false
+	var fam_locked: Dictionary = Activities.availability("family_meet", gs)
+	if bool(fam_locked.get("ok", true)):
+		printerr("[smoke] FAIL family act should wait for romance")
+		phase13_ok = false
+	gs.apply_activity("date_walk")
+	if int(gs.romance) != 8:
+		printerr("[smoke] FAIL romance after one date got %d" % int(gs.romance))
+		phase13_ok = false
+	gs.romance = 48
+	gs.apply_activity("family_meet")
+	gs.apply_activity("family_talk")
+	if int(gs.family_prep) < 2 or not gs.family_settled:
+		printerr("[smoke] FAIL family branch prep=%d settled=%s romance=%d" % [int(gs.family_prep), str(gs.family_settled), int(gs.romance)])
+		phase13_ok = false
+	else:
+		print("[smoke] romance meter + optional family OK")
+
+	gs.begin_new_game()
+	gs.year = 13
+	var only_shop: Array = Adulthood.available_jobs(gs)
+	if only_shop.size() != 1 or str(only_shop[0].get("id", "")) != "shop_staff":
+		printerr("[smoke] FAIL empty skills should only offer shop, got %d" % only_shop.size())
+		phase13_ok = false
+	gs.interest_points["art"] = 4
+	gs.skill_xp["paint"] = 3
+	var art_jobs: Array = Adulthood.available_jobs(gs)
+	if art_jobs.is_empty() or str(art_jobs[0].get("id", "")) != "design_studio":
+		printerr("[smoke] FAIL art job rank %s" % str(art_jobs))
+		phase13_ok = false
+	var saw_shop := false
+	for art_job in art_jobs:
+		if str(art_job.get("id", "")) == "shop_staff":
+			saw_shop = true
+	if not saw_shop:
+		printerr("[smoke] FAIL shop fallback missing from art pool")
+		phase13_ok = false
+	gs.skill_xp = {}
+	gs.interest_points = {}
+	gs.education_path = "letters"
+	var edu_ids: PackedStringArray = []
+	var edu_jobs: Array = Adulthood.available_jobs(gs)
+	for edu_job in edu_jobs:
+		edu_ids.append(str(edu_job.get("id", "")))
+	if not edu_ids.has("school_aide") or str(edu_jobs[0].get("id", "")) == "shop_staff":
+		printerr("[smoke] FAIL education_path letters bias %s" % str(edu_ids))
+		phase13_ok = false
+	gs.education_path = "university"
+	var uni_jobs: Array = Adulthood.available_jobs(gs)
+	if uni_jobs.size() != 1 or str(uni_jobs[0].get("id", "")) != "shop_staff":
+		printerr("[smoke] FAIL unknown education_path should not widen the pool")
+		phase13_ok = false
+	else:
+		print("[smoke] adult job pool OK")
+
+	gs.begin_new_game()
+	gs.academia = 70
+	gs.morals = 55
+	gs.stamina = 45
+	gs.social = 55
+	gs.charm = 20
+	gs.mood = 50
+	gs.cash = 100
+	var career_before: Dictionary = Endings.evaluate(gs)
+	if str(career_before.get("id", "")) != "doctor":
+		printerr("[smoke] FAIL career baseline %s" % str(career_before.get("id", "")))
+		phase13_ok = false
+	gs.adult_job = "school_aide"
+	var career_after: Dictionary = Endings.evaluate(gs)
+	if str(career_after.get("id", "")) != "teacher":
+		printerr("[smoke] FAIL job should tip teacher, got %s" % str(career_after.get("id", "")))
+		phase13_ok = false
+	elif not str(career_after.get("life_line", "")).contains("沒有急著成家") or not str(career_after.get("life_chip", "")).contains("一個人"):
+		printerr("[smoke] FAIL single life line %s" % str(career_after.get("life_chip", "")))
+		phase13_ok = false
+	gs.romance = 80
+	gs.family_settled = true
+	var settled_end: Dictionary = Endings.evaluate(gs)
+	if not str(settled_end.get("life_chip", "")).contains("成家") or not str(settled_end.get("life_line", "")).contains("自己選"):
+		printerr("[smoke] FAIL family ending note")
+		phase13_ok = false
+	else:
+		print("[smoke] ending weighs job + romance + family OK")
+
+	gs.romance = 44
+	gs.family_prep = 1
+	gs.family_settled = false
+	gs.adult_job = "design_studio"
+	gs.education_path = "art"
+	if not gs.save_game(0):
+		printerr("[smoke] FAIL adult save")
+		phase13_ok = false
+	gs.begin_new_game()
+	if int(gs.romance) != 0 or str(gs.adult_job) != "" or str(gs.education_path) != "undecided":
+		printerr("[smoke] FAIL new game did not clear adult fields")
+		phase13_ok = false
+	if not gs.load_game(0) or int(gs.romance) != 44 or int(gs.family_prep) != 1 or str(gs.adult_job) != "design_studio":
+		printerr("[smoke] FAIL adult load romance=%d job=%s" % [int(gs.romance), str(gs.adult_job)])
+		phase13_ok = false
+	elif str(gs.education_path) != "art":
+		printerr("[smoke] FAIL education_path art load")
+		phase13_ok = false
+	else:
+		print("[smoke] adult save/load OK")
+	gs.from_dict({"year": 9, "season": 1, "charm": 12})
+	if int(gs.romance) != 0 or str(gs.adult_job) != "" or bool(gs.family_settled) or int(gs.year) != 9 or int(gs.charm) != 12:
+		printerr("[smoke] FAIL v1 save migration")
+		phase13_ok = false
+	else:
+		print("[smoke] v1 save defaults adult fields OK")
+	gs.delete_save(0)
+
+	gs.begin_new_game()
+	gs.year = 15
+	var adult_rng := RandomNumberGenerator.new()
+	adult_rng.seed = 3
+	var adult_pick: Dictionary = Confide.pick_line(gs, adult_rng)
+	if not str(adult_pick.get("id", "")).begins_with("adult_"):
+		printerr("[smoke] FAIL adult confide pool %s" % str(adult_pick.get("id", "")))
+		phase13_ok = false
+
+	gs.begin_new_game()
+	gs.year = 4
+	gs.cash = 3000
+	gs.season_schedule = ["rest_sleep", "rest_park", "virtue_chores"] as Array[String]
+	gs.resolve_season()
+	if str(gs.last_deltas.get("job_name", "")) != "":
+		printerr("[smoke] FAIL childhood season grew a job")
+		phase13_ok = false
+	gs.begin_new_game()
+	gs.year = 13
+	gs.cash = 2000
+	gs.mood = 70
+	gs.adult_job = "shop_staff"
+	gs.season_schedule = ["date_walk", "rest_park", "study_night"] as Array[String]
+	gs.resolve_season()
+	var free_names: Array = gs.last_activity_names
+	if free_names.size() < 3 or str(free_names[0]) != "黃昏散步" or str(free_names[2]) != "夜間進修":
+		printerr("[smoke] FAIL free slots replaced: %s" % str(free_names))
+		phase13_ok = false
+	elif str(gs.last_deltas.get("job_name", "")) != "商店街店員" or int(gs.last_deltas.get("job_cash", 0)) != 4500:
+		printerr("[smoke] FAIL job background %s $%s" % [str(gs.last_deltas.get("job_name", "")), str(gs.last_deltas.get("job_cash", 0))])
+		phase13_ok = false
+	elif int(gs.romance) != 8:
+		printerr("[smoke] FAIL season romance %d" % int(gs.romance))
+		phase13_ok = false
+	else:
+		print("[smoke] adult month = job + one free slot OK")
+
+	gs.begin_new_game()
+	gs.year = 13
+	gs.season = 0
+	gs.romance = 36
+	gs.adult_job = "cafe_shift"
+	gs.flags["tutorial_done"] = true
+	gs.flags["growth_tutorial_done"] = true
+	gs.flags["adult_job_intro_done"] = true
+	gs.flags["confide_rolled_13_0"] = true
+	var hub_packed = load("res://scenes/home_hub.tscn")
+	if hub_packed == null:
+		printerr("[smoke] FAIL home_hub scene")
+		phase13_ok = false
+	else:
+		var hub: Node = hub_packed.instantiate()
+		root.add_child(hub)
+		var saw_romance := false
+		var saw_job := false
+		var saw_job_btn := false
+		var walk: Array = [hub]
+		while walk.size() > 0:
+			var node: Node = walk.pop_back()
+			if node is Label:
+				var label_text := str(node.text)
+				if label_text.contains("戀愛進度"):
+					saw_romance = true
+				if label_text.contains("咖啡店正職"):
+					saw_job = true
+			if node is Button and str(node.text) == "更換工作":
+				saw_job_btn = true
+			for child in node.get_children():
+				walk.append(child)
+		hub.call("_show_job_panel")
+		var saw_current := false
+		walk = [hub]
+		while walk.size() > 0:
+			var node2: Node = walk.pop_back()
+			if node2 is Button and str(node2.text).contains("（目前）"):
+				saw_current = true
+			for child2 in node2.get_children():
+				walk.append(child2)
+		if not saw_romance or not saw_job or not saw_job_btn or not saw_current:
+			printerr("[smoke] FAIL adult hub romance=%s job=%s btn=%s current=%s" % [str(saw_romance), str(saw_job), str(saw_job_btn), str(saw_current)])
+			phase13_ok = false
+		else:
+			print("[smoke] adult hub romance + job OK")
+		hub.free()
+
+	if phase13_ok:
+		print("[smoke] adulthood OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -1274,9 +1553,12 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
+		ok = false
+	if str(gs.last_deltas.get("job_name", "")) == "" or int(gs.last_deltas.get("job_cash", 0)) <= 0:
+		printerr("[smoke] FAIL: final adult season missing weekday job")
 		ok = false
 	if not gs.is_game_over:
 		printerr("[smoke] FAIL: game not over")

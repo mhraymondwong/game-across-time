@@ -196,7 +196,7 @@ static func ending_summary(state: Node) -> String:
 		"wong_doctor":
 			return "王醫師的候診椅還在老位置。她未必穿上白袍，卻記得怎麼把溫水遞給人。診所的燈亮著，小鎮就有人照應。"
 		_:
-			return "她被%s記得。十二年沒有轟轟烈烈，名字卻在小鎮裡有了回音。" % name
+			return "她被%s記得。十八年沒有轟轟烈烈，名字卻在小鎮裡有了回音。" % name
 
 
 static func ending_aside(state: Node) -> String:

@@ -331,6 +331,114 @@ const LINES: Array = [
 			},
 		],
 	},
+	{
+		"id": "adult_worry_late",
+		"band": "adult",
+		"tone": "worry",
+		"kicker": "想跟你說",
+		"body": "%s把外套掛好，聲音有點乾：「今天的班有點長。不是不想回來，是回來的時候已經不太會說話。」",
+		"options": [
+			{
+				"label": "先坐下，不用報告",
+				"reply": "你把熱茶推過去。她握了一會兒，才把今天的事說成很短的幾句。",
+				"deltas": {"mood": 4, "stamina": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "明天的班我們看一看",
+				"reply": "你們把手帳翻開。她說不是要你排，只是想有人一起看。",
+				"deltas": {"morals": 1, "mood": 2},
+				"warmth": 1,
+			},
+			{
+				"label": "我去熱飯",
+				"reply": "飯是中午剩下的。她吃得很慢，說這樣就夠了。",
+				"deltas": {"stamina": 2, "mood": 3},
+				"warmth": 0,
+			},
+		],
+	},
+	{
+		"id": "adult_worry_someone",
+		"band": "adult",
+		"tone": "worry",
+		"kicker": "想跟你說",
+		"body": "「有一個人。」%s看著自己的杯子，沒有說名字。「我不知道要不要讓這件事變大。變大了，家裡會不會不一樣。」",
+		"options": [
+			{
+				"label": "家還是家",
+				"reply": "你說，多一個人也好，沒有也好，這張桌子都在。她點頭，把杯子轉正。",
+				"deltas": {"mood": 4, "morals": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "你自己的步伐",
+				"reply": "你說，想靠近就靠近，想慢就慢。她說她聽見了。",
+				"deltas": {"social": 1, "mood": 3},
+				"warmth": 1,
+			},
+			{
+				"label": "想說的時候再說",
+				"reply": "你沒有問是誰。她把沒說完的話留到以後，肩膀鬆了一點。",
+				"deltas": {"mood": 3},
+				"warmth": 0,
+			},
+		],
+	},
+	{
+		"id": "adult_cling_dinner",
+		"band": "adult",
+		"tone": "cling",
+		"kicker": "留在家裡",
+		"body": "%s在玄關換鞋，忽然問：「今晚可以都留在家嗎？不是小時候那樣，就是想跟你們吃飯。」",
+		"options": [
+			{
+				"label": "今晚不外出",
+				"reply": "你把外套放回鉤上。三個人的碗，還是老位子。",
+				"deltas": {"mood": 4, "social": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "你來決定菜",
+				"reply": "她挑了最家常的那一道。媽媽說好，你負責洗碗。",
+				"deltas": {"mood": 3, "morals": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "吃完再散散步",
+				"reply": "飯後你們走到巷口就回頭。她說這樣的長度剛好。",
+				"deltas": {"stamina": 2, "mood": 2},
+				"warmth": 0,
+			},
+		],
+	},
+	{
+		"id": "adult_cling_quiet",
+		"band": "adult",
+		"tone": "cling",
+		"kicker": "留在家裡",
+		"body": "「借我安靜一下。」%s坐到你旁邊，沒有靠得很近。「成年以後好像比較少這樣。可是今天想。」",
+		"options": [
+			{
+				"label": "這裡一直有位子",
+				"reply": "你沒有開電視。兩個人聽了一會兒時鐘。她說夠了，去洗碗。",
+				"deltas": {"mood": 4},
+				"warmth": 1,
+			},
+			{
+				"label": "爸爸也坐一下",
+				"reply": "你在她另一側坐下。誰都沒有把這件事說成撒嬌，可是很暖。",
+				"deltas": {"mood": 5, "social": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "想說話再叫我",
+				"reply": "你去廚房把水燒上。她後來端著杯子過來說，這樣就好。",
+				"deltas": {"mood": 3, "stamina": 1},
+				"warmth": 0,
+			},
+		],
+	},
 ]
 
 
@@ -358,7 +466,11 @@ static func _pool(band: String, tone: String) -> Array:
 
 
 static func pick_line(state, rng: RandomNumberGenerator) -> Dictionary:
-	var band := "child" if int(state.year) <= 6 else "teen"
+	var band := "child"
+	if GameConfig.is_adult_year(int(state.year)):
+		band = "adult"
+	elif int(state.year) > 6:
+		band = "teen"
 	var tone := "worry" if rng.randf() < 0.5 else "cling"
 	var pool := _pool(band, tone)
 	if pool.is_empty():

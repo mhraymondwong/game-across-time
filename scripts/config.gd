@@ -4,11 +4,15 @@ extends RefCounted
 
 const GAME_TITLE := "時光裡的她"
 const START_AGE := 6
-const TOTAL_YEARS := 12
+## Childhood is years 1–12 (about ages 6–17). Adulthood adds years 13–18 (about 18–23).
+## The ending fires after year 18's winter review, when `year` becomes 19.
+const CHILDHOOD_YEARS := 12
+const ADULT_START_YEAR := 13
+const TOTAL_YEARS := 18
 const SEASONS_PER_YEAR := 4
 const MONTHS_PER_SEASON := 3
-const TOTAL_MONTHS := TOTAL_YEARS * SEASONS_PER_YEAR * MONTHS_PER_SEASON  # 144
-const GROWTH_STAGES := 6  # every 2 years: 0..5
+const TOTAL_MONTHS := TOTAL_YEARS * SEASONS_PER_YEAR * MONTHS_PER_SEASON  # 216
+const GROWTH_STAGES := 6  # childhood art: every 2 years, stages 0..5
 
 const SEASON_NAMES := ["春", "夏", "秋", "冬"]
 ## English keys for wardrobe / weather asset filenames
@@ -59,7 +63,9 @@ static func age_for_year(year: int) -> int:
 	return START_AGE + year - 1
 
 
-## Years 1–2→0, 3–4→1, 5–6→2, 7–8→3, 9–10→4, 11–12→5
+## Years 1–2→0, 3–4→1, 5–6→2, 7–8→3, 9–10→4, 11–12→5.
+## Years 13–18 stay on stage 5 for the numeric index. Adult outfits are separate
+## files (one set per year, four seasons) and fall back to this stage when missing.
 static func growth_stage_for_year(year: int) -> int:
 	var y := clampi(year, 1, TOTAL_YEARS)
 	return clampi((y - 1) / 2, 0, GROWTH_STAGES - 1)
@@ -69,10 +75,20 @@ static func growth_stage_label(stage: int) -> String:
 	return STAGE_LABELS[clampi(stage, 0, GROWTH_STAGES - 1)]
 
 
-static func age_band(age: int) -> String:
-	## Display band derived from growth stage (every 2 years)
-	var year := clampi(age - START_AGE + 1, 1, TOTAL_YEARS)
+static func is_adult_year(year: int) -> bool:
+	return year >= ADULT_START_YEAR
+
+
+static func life_phase_label(year: int) -> String:
+	if is_adult_year(year):
+		return "成年"
 	return growth_stage_label(growth_stage_for_year(year))
+
+
+static func age_band(age: int) -> String:
+	## Display band derived from growth stage (every 2 years); adult ages say 成年
+	var year := clampi(age - START_AGE + 1, 1, TOTAL_YEARS)
+	return life_phase_label(year)
 
 
 static func age_art_band(age: int) -> String:
@@ -137,14 +153,38 @@ static func wardrobe_path(stage: int, season: int) -> String:
 	return ""
 
 
+## Adult outfits keep childhood's seasonal cadence, one set per adult year
+## (art_yearly_season): ages 18–23 are years 13–18.
+## TODO(art): draw res://assets/wardrobe/adult_y{13-18}_{spring|summer|autumn|winter}.png
+## (png or jpg). Do not invent stand-in files. Until a year has art, reuse the
+## latest youth stage (s5, 青年) of the same season.
 static func wardrobe_path_for_year_season(year: int, season: int) -> String:
+	if is_adult_year(year):
+		var adult := _adult_wardrobe_path(year, season)
+		if adult != "":
+			return adult
+		return wardrobe_path(GROWTH_STAGES - 1, season)
 	return wardrobe_path(growth_stage_for_year(year), season)
 
 
+static func _adult_wardrobe_path(year: int, season: int) -> String:
+	var seasons_try: Array[int] = [clampi(season, 0, 3)]
+	for s in range(4):
+		if s not in seasons_try:
+			seasons_try.append(s)
+	for s_idx in seasons_try:
+		var key := season_key(s_idx)
+		for ext in ["png", "jpg"]:
+			var p := "res://assets/wardrobe/adult_y%d_%s.%s" % [year, key, ext]
+			if _file_exists(p):
+				return p
+	return ""
+
+
 static func daughter_texture_path(age: int) -> String:
-	## Prefer 6-stage wardrobe (spring) for the age's year; else legacy 3-band
+	## Prefer wardrobe (spring) for the age's year, including the adult fallback
 	var year := clampi(age - START_AGE + 1, 1, TOTAL_YEARS)
-	var wp := wardrobe_path(growth_stage_for_year(year), 0)
+	var wp := wardrobe_path_for_year_season(year, 0)
 	if wp != "":
 		return wp
 	match age_art_band(age):

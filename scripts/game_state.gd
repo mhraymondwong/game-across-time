@@ -40,10 +40,19 @@ var save_name: String = ""
 var wants_new_game_name: bool = false
 var daughter_name: String = "小悠"
 ## Skill id -> XP. Levels are derived. Interest tag id -> points.
-## education_path is a later adulthood hook; this build never opens a choice UI.
+## education_path is a Phase C hook. No choice UI in this build.
+## Tag ids (art/stem/service/letters/sport/business) or a job id mildly bias the adult job pool.
+## "undecided" and unknown strings (including a leftover "university") do not.
 var skill_xp: Dictionary = {}
 var interest_points: Dictionary = {}
 var education_path: String = "undecided"
+## Abstract romance meter, 0–100. Not tied to a romance NPC.
+var romance: int = 0
+## Optional settle branch. family_prep counts adult 「成家」 months; never forced.
+var family_prep: int = 0
+var family_settled: bool = false
+## Adult weekday job id. Empty until adulthood; resolve will pick one if still empty.
+var adult_job: String = ""
 var _event_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 const DEFAULT_DAUGHTER_NAME := "小悠"
@@ -104,6 +113,10 @@ func begin_new_game(given_name: String = "") -> void:
 	skill_xp = {}
 	interest_points = {}
 	education_path = "undecided"
+	romance = 0
+	family_prep = 0
+	family_settled = false
+	adult_job = ""
 	reset_npc_affinity()
 	months_played = 0
 	is_game_over = false
@@ -157,9 +170,8 @@ func get_season_name() -> String:
 
 
 func get_time_label() -> String:
-	var stage := GameConfig.growth_stage_for_year(year)
 	return "第 %d 年 · %s · %s %d 歲（%s）" % [
-		year, get_season_name(), daughter_display_name(), get_age(), GameConfig.growth_stage_label(stage)
+		year, get_season_name(), daughter_display_name(), get_age(), GameConfig.life_phase_label(year)
 	]
 
 
@@ -234,6 +246,7 @@ func apply_activity(activity_id: String) -> Dictionary:
 	if not bump.is_empty():
 		apply_affinity_map(bump, false)
 	GrowthPath.grant(self, aid)
+	Adulthood.note_activity(self, aid)
 	var disp := str(delta.get("name", activity_id))
 	if disp != "":
 		year_activity_names.append(disp)
@@ -286,6 +299,10 @@ func resolve_season() -> Dictionary:
 	last_activity_names = []
 	last_vignettes = []
 	var month_logs: Array = []
+	var job_name := ""
+	var job_cash := 0
+	if Adulthood.is_adult(self):
+		Adulthood.grant_yearly_skill(self)
 	for i in range(GameConfig.MONTHS_PER_SEASON):
 		var id: String = season_schedule[i] if i < season_schedule.size() else ""
 		if id == "" or not Activities.is_available(id, self):
@@ -293,6 +310,12 @@ func resolve_season() -> Dictionary:
 		var d := apply_activity(id)
 		last_activity_names.append(str(d.get("name", id)))
 		month_logs.append(d)
+		# Weekday job is background: it must not replace the free slot already resolved.
+		if Adulthood.is_adult(self):
+			var jd := Adulthood.job_month_delta(self)
+			_apply_delta(jd)
+			job_cash += int(jd.get("cash", 0))
+			job_name = str(jd.get("name", job_name))
 		var vig := ActivityScenes.get_vignette(id, season)
 		vig["month_index"] = i
 		vig["month_label"] = GameConfig.MONTH_LABELS[i] if i < GameConfig.MONTH_LABELS.size() else "這個月"
@@ -321,6 +344,10 @@ func resolve_season() -> Dictionary:
 	totals["event"] = last_season_event.duplicate(true)
 	totals["vignettes"] = _dict_array_dup(last_vignettes)
 	totals["affinity_note"] = TownNpcs.season_note(self)
+	totals["job_name"] = job_name
+	totals["job_cash"] = job_cash
+	totals["romance"] = romance
+	totals["family_settled"] = family_settled
 	last_deltas = totals
 	record_season_memories()
 	season_resolved.emit(totals)
@@ -365,8 +392,7 @@ func build_year_review() -> Dictionary:
 	## Call while `year` still equals the completed game year.
 	var review_year := year
 	var age := GameConfig.age_for_year(review_year)
-	var stage := GameConfig.growth_stage_for_year(review_year)
-	var stage_label := GameConfig.growth_stage_label(stage)
+	var stage_label := GameConfig.life_phase_label(review_year)
 	var before: Dictionary = year_start_stats if not year_start_stats.is_empty() else get_stats_dict()
 	var after := get_stats_dict()
 	var deltas := {}
@@ -389,6 +415,13 @@ func build_year_review() -> Dictionary:
 func _year_highlights() -> Array:
 	var out: Array = []
 	var seen := {}
+	if Adulthood.is_adult(self):
+		var jn := Adulthood.job_name_of(str(adult_job))
+		if jn != "":
+			out.append("平日・%s" % jn)
+			seen[jn] = true
+		if int(romance) >= 25 and out.size() < 6:
+			out.append("心事・%s" % Adulthood.romance_band(int(romance)))
 	for n in year_activity_names:
 		var s := str(n)
 		if s == "" or seen.has(s):
@@ -427,6 +460,8 @@ func _craft_year_summary(deltas: Dictionary, review_year: int, age: int, stage_l
 			best_v = v
 			best_k = k
 	if mood_d <= -8:
+		if review_year >= GameConfig.TOTAL_YEARS:
+			return "第 %d 年有點累。%d 歲的她仍會把話留到最後一頓飯上——結局之前，先讓她靠一下。" % [review_year, age]
 		return "第 %d 年有點累，%d 歲的她仍會把小手伸進你的掌心——明年，我們慢慢把笑容找回來。" % [review_year, age]
 	if best_k != "" and best_v >= 8:
 		return "翻開第 %d 年的相簿：%s的%s明顯長了一截。看著 %d 歲的她，你覺得這份陪伴沒有白費。" % [
@@ -438,6 +473,12 @@ func _craft_year_summary(deltas: Dictionary, review_year: int, age: int, stage_l
 		return "第 %d 年的標籤是溫暖。%d 歲（%s）的她笑得很多——這些拍立得，就留給將來的你們。" % [
 			review_year, age, stage_label
 		]
+	if review_year >= GameConfig.TOTAL_YEARS:
+		return "第 %d 年的手帳合上了。%d 歲的她把十八年收進這一頁，你還在她旁邊。" % [review_year, age]
+	if review_year >= GameConfig.ADULT_START_YEAR:
+		var job := Adulthood.job_name_of(str(adult_job))
+		if job != "":
+			return "第 %d 年，平日是%s。%d 歲的她仍把每月剩下的那一格，留給自己想靠近的事。" % [review_year, job, age]
 	return "第 %d 年就這樣翻過。沒有轟轟烈烈，只有你與她並肩走過的四季剪影。" % review_year
 
 
@@ -465,7 +506,7 @@ func finish_game() -> String:
 	return "ending"
 
 
-## Headless / smoke: play full 144 months with given picker Callable(month_index)->id
+## Headless / smoke: play every month through year 18 with given picker Callable(month_index)->id
 func run_full_auto(picker: Callable) -> Dictionary:
 	begin_new_game()
 	while not is_game_over and year <= GameConfig.TOTAL_YEARS:
@@ -499,7 +540,7 @@ func to_dict() -> Dictionary:
 	for n in last_activity_names:
 		names.append(str(n))
 	return {
-		"version": 1,
+		"version": 2,
 		"year": year,
 		"season": season,
 		"month_in_season": month_in_season,
@@ -532,6 +573,10 @@ func to_dict() -> Dictionary:
 		"skill_xp": skill_xp.duplicate(),
 		"interest_points": interest_points.duplicate(),
 		"education_path": education_path,
+		"romance": romance,
+		"family_prep": family_prep,
+		"family_settled": family_settled,
+		"adult_job": adult_job,
 	}
 
 
@@ -601,6 +646,13 @@ func from_dict(d: Dictionary) -> void:
 	interest_points = _int_map(d.get("interest_points", {}), false)
 	var edu := str(d.get("education_path", "")).strip_edges()
 	education_path = edu if edu != "" else "undecided"
+	# v1 saves have no adult fields. Missing keys stay at the childhood defaults.
+	romance = clampi(int(d.get("romance", 0)), 0, Adulthood.ROMANCE_MAX)
+	family_prep = maxi(int(d.get("family_prep", 0)), 0)
+	family_settled = bool(d.get("family_settled", false))
+	adult_job = str(d.get("adult_job", "")).strip_edges()
+	if adult_job != "" and Adulthood.job_def(adult_job).is_empty():
+		adult_job = ""
 	state_changed.emit()
 
 
