@@ -10,6 +10,10 @@ const GIRL_W := 210.0
 const GIRL_H := 520.0
 ## Right margin reserved so schedule/stats stay clear of the girl
 const DRAWER_RIGHT_CLEAR := 230
+## Mom hub pin. Source art is 385×1152; this size keeps that ratio.
+## Narrow enough to stand left of the home map pin, much smaller than the daughter.
+const MOM_PIN_W := 76.0
+const MOM_PIN_H := 227.0
 
 var _time_lbl: Label
 var _slot_btns: Array[Button] = []
@@ -41,8 +45,9 @@ var _save_list: VBoxContainer
 var _pending_save_slot: int = -1
 var _tutorial_layer: CanvasLayer
 var _map_rng: RandomNumberGenerator = RandomNumberGenerator.new()
-var _mom_card: PanelContainer
+var _mom_card: Control
 var _mom_tex: TextureRect
+var _mom_shadow: TextureRect
 var _mom_popup: PanelContainer
 var _mom_line: Label
 var _mom_help_lbl: Label
@@ -1107,46 +1112,38 @@ func _open_travel_offer() -> void:
 
 
 func _build_mom_card() -> void:
-	_mom_card = PanelContainer.new()
-	_mom_card.name = "MomCard"
+	# Frameless standing cutout. No polaroid panel, no name plate.
+	_mom_card = Control.new()
+	_mom_card.name = "MomPin"
 	_mom_card.visible = false
 	_mom_card.z_index = 9
-	_mom_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_mom_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mom_card.tooltip_text = "點一下，跟媽媽說說話"
-	var style := UiStyle.panel_style(Color("FFFAFC"), Color("F5B8C8"), 16)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 8
-	style.content_margin_bottom = 10
-	style.set_border_width_all(2)
-	style.border_width_bottom = 16
-	_mom_card.add_theme_stylebox_override("panel", style)
 	add_child(_mom_card)
 
-	var col := VBoxContainer.new()
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 4)
-	_mom_card.add_child(col)
+	_mom_shadow = TextureRect.new()
+	_mom_shadow.name = "MomShadow"
+	_mom_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_mom_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_mom_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mom_shadow.modulate = Color(0.22, 0.10, 0.16, 0.22)
+	_mom_card.add_child(_mom_shadow)
 
 	_mom_tex = TextureRect.new()
-	_mom_tex.custom_minimum_size = Vector2(132, 164)
+	_mom_tex.name = "MomCutout"
+	_mom_tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_mom_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_mom_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_mom_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_mom_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(_mom_tex)
-
-	var name_lbl := Label.new()
-	name_lbl.text = Mom.NAME
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiStyle.apply_label(name_lbl, 14)
-	col.add_child(name_lbl)
+	_mom_card.add_child(_mom_tex)
 
 	var hit := Button.new()
+	hit.name = "MomHit"
 	hit.flat = true
 	hit.focus_mode = Control.FOCUS_NONE
 	hit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	hit.tooltip_text = "點一下，跟媽媽說說話"
 	var empty := StyleBoxEmpty.new()
 	hit.add_theme_stylebox_override("normal", empty)
 	hit.add_theme_stylebox_override("hover", empty)
@@ -1163,15 +1160,18 @@ func _position_mom_card() -> void:
 	var sz := size
 	if sz.y < 10:
 		sz = Vector2(GameConfig.VIEWPORT_W, GameConfig.VIEWPORT_H)
-	var card := Vector2(156, 228)
+	var pin := Vector2(MOM_PIN_W, MOM_PIN_H)
 	var drawer_top := sz.y - (DRAWER_H if _drawer_expanded else DRAWER_COLLAPSED)
-	# Year-1 tutorial card sits at the top-left; keep the portrait beside it.
+	# Year-1 tutorial card sits at the top-left; keep the pin beside it, above the drawer.
 	var x := 488.0 if _tutorial_open() else 16.0
 	var y := 66.0
-	if y + card.y > drawer_top - 8.0:
-		y = maxf(66.0, drawer_top - card.y - 8.0)
+	if y + pin.y > drawer_top - 8.0:
+		y = maxf(66.0, drawer_top - pin.y - 8.0)
 	_mom_card.position = Vector2(x, y)
-	_mom_card.size = card
+	_mom_card.size = pin
+	if _mom_shadow != null:
+		_mom_shadow.position = Vector2(3, 4)
+		_mom_shadow.size = pin
 
 
 func _tutorial_open() -> bool:
@@ -1187,7 +1187,10 @@ func _refresh_mom() -> void:
 	if not present:
 		return
 	if _mom_tex != null and _mom_tex.texture == null:
-		_mom_tex.texture = _load_tex(Mom.PORTRAIT_PATH)
+		var tex := _load_tex(Mom.PIN_PATH)
+		_mom_tex.texture = tex
+		if _mom_shadow != null:
+			_mom_shadow.texture = tex
 
 
 func _on_mom_pressed() -> void:
@@ -1235,15 +1238,15 @@ func _on_mom_help() -> void:
 
 func _make_mom_popup() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(560, 420)
+	panel.custom_minimum_size = Vector2(620, 500)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -280
-	panel.offset_right = 280
-	panel.offset_top = -220
-	panel.offset_bottom = 220
+	panel.offset_left = -310
+	panel.offset_right = 310
+	panel.offset_top = -250
+	panel.offset_bottom = 250
 	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
 
 	var margin := MarginContainer.new()
@@ -1258,9 +1261,12 @@ func _make_mom_popup() -> PanelContainer:
 	margin.add_child(row)
 
 	_mom_portrait = TextureRect.new()
-	_mom_portrait.custom_minimum_size = Vector2(168, 220)
+	_mom_portrait.name = "MomPortrait"
+	# Bust cutout is 324×625. Match that ratio so the figure is not square-cropped.
+	_mom_portrait.custom_minimum_size = Vector2(208, 400)
+	_mom_portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_mom_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_mom_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_mom_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_mom_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(_mom_portrait)
 

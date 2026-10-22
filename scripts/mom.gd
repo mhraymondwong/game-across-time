@@ -1,11 +1,14 @@
 class_name Mom
 extends RefCounted
 ## 家人・媽媽。不是 TownNpcs 小鎮名單；好感不計分，關係固定是暖的。
-## 主畫面每季最多擲一次（約三成），出現才顯示肖像。
+## 主畫面每季最多擲一次（約三成），出現才放站立剪影立牌。
 
 const ID := "mom"
 const NAME := "媽媽"
-const PORTRAIT_PATH := "res://assets/family/mom_portrait.jpg"
+## Hub pin. Scale this full-body cutout down in the UI; do not crop it into a frame.
+const PIN_PATH := "res://assets/family/mom_fullbody_cutout.png"
+## Dialogue popup. Larger bust cutout, kept in aspect (not the legacy square JPG).
+const PORTRAIT_PATH := "res://assets/family/mom_bust_cutout.png"
 const FAMILY_PHOTO_PATH := "res://assets/family/family_photo_child.jpg"
 ## 25–35% per season; the roll flag makes it once per season.
 const APPEAR_CHANCE := 0.30

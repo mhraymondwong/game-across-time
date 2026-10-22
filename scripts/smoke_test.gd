@@ -576,6 +576,8 @@ func _run() -> void:
 	# —— Mom (family, occasional hub) + biennial travel ——
 	var phase10_ok := true
 	for rel in [
+		"res://assets/family/mom_fullbody_cutout.png",
+		"res://assets/family/mom_bust_cutout.png",
 		"res://assets/family/mom_portrait.jpg",
 		"res://assets/family/family_photo_child.jpg",
 		"res://assets/travel/travel_china_family.jpg",
@@ -606,6 +608,27 @@ func _run() -> void:
 	if not hub_src.contains("res://scenes/travel_offer.tscn") or not hub_src.contains("Mom.roll_presence"):
 		printerr("[smoke] FAIL hub not wired to mom/travel")
 		phase10_ok = false
+	if Mom.PIN_PATH != "res://assets/family/mom_fullbody_cutout.png" or Mom.PORTRAIT_PATH != "res://assets/family/mom_bust_cutout.png":
+		printerr("[smoke] FAIL mom art paths pin=%s portrait=%s" % [Mom.PIN_PATH, Mom.PORTRAIT_PATH])
+		phase10_ok = false
+	elif Mom.PIN_PATH.ends_with("mom_portrait.jpg") or Mom.PORTRAIT_PATH.ends_with("mom_portrait.jpg"):
+		printerr("[smoke] FAIL hub/dialogue still use mom_portrait.jpg")
+		phase10_ok = false
+	elif hub_src.contains("mom_portrait.jpg") or not hub_src.contains("Mom.PIN_PATH"):
+		printerr("[smoke] FAIL hub pin not on the fullbody cutout")
+		phase10_ok = false
+	elif hub_src.contains("border_width_bottom = 16"):
+		printerr("[smoke] FAIL mom hub still has a polaroid frame")
+		phase10_ok = false
+	else:
+		print("[smoke] mom cutout paths OK")
+	for cut in [Mom.PIN_PATH, Mom.PORTRAIT_PATH]:
+		var cut_img := Image.load_from_file(ProjectSettings.globalize_path(cut))
+		if cut_img == null or cut_img.detect_alpha() == Image.ALPHA_NONE:
+			printerr("[smoke] FAIL cutout missing alpha %s" % cut)
+			phase10_ok = false
+		else:
+			print("[smoke] cutout alpha %s OK" % cut)
 	var travel_src := FileAccess.get_file_as_string("res://scripts/travel.gd")
 	if not travel_src.contains("TODO"):
 		printerr("[smoke] FAIL travel placeholder art missing TODO")
