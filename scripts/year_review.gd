@@ -256,7 +256,4 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_continue() -> void:
 	var next := GameState.continue_after_year_review()
-	if next == "ending":
-		get_tree().change_scene_to_file("res://scenes/ending.tscn")
-	else:
-		get_tree().change_scene_to_file("res://scenes/home_hub.tscn")
+	get_tree().change_scene_to_file(Adulthood.scene_after_review(GameState, next))

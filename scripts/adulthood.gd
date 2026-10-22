@@ -3,8 +3,8 @@ extends RefCounted
 ## 第 13–18 年（約 18–23 歲）。鎖：adult_plus6_end_y18、排程 A+B、戀愛 C+D。
 ## 平日工作是背景，每月日記仍只排 1 格（戀愛／進修／成家／工作小事）。
 ## 戀愛是抽象「戀愛進度」，不綁特定戀愛 NPC。成家是可選支線，單身可以走到結局。
-## education_path 若已是興趣標籤或工作 id，只輕輕把對上的工作排進名單並提前；
-## 沒有升學選擇畫面（Phase C）。undecided 與認不得的字串不改變名單。
+## 升學分叉只寫 education_path，並只影響工作名單與結局裡成家那一句。
+## 五條屬性、心情、家計、專長經驗與興趣點數都不在這裡改。
 
 
 const ROMANCE_MAX := 100
@@ -16,6 +16,23 @@ const FAMILY_SETTLE_ROMANCE := 50
 ## 結局加分。只在原本已經達標、而且優先度落在視窗內的路線之間重排。
 const CAREER_BONUS := 4
 const FALLBACK_JOB := "shop_staff"
+const PATH_UNDECIDED := "undecided"
+const PATH_UNIVERSITY := "university"
+const PATH_HIGH_SCHOOL := "high_school"
+const FORK_SCENE := "res://scenes/education_fork.tscn"
+const HUB_SCENE := "res://scenes/home_hub.tscn"
+const ENDING_SCENE := "res://scenes/ending.tscn"
+## 大學：學業附近，以及晚一點才穩的專業。高中就業：店裡、照顧、手邊的班表。
+## Order is the tie-break for an empty skill page: study-side entry, then later professional work.
+const UNIVERSITY_JOBS: PackedStringArray = [
+	"school_aide", "clinic_aide", "desk_writer", "design_studio", "clerk_hall",
+]
+## Order is the tie-break: a shift starts sooner than the later professional list.
+const HIGH_SCHOOL_JOBS: PackedStringArray = [
+	"cafe_shift", "shop_staff", "neighbor_care", "gym_coach", "travel_desk",
+]
+const COPY_UNIVERSITY_TITLE := "大學進路"
+const COPY_HIGH_SCHOOL_TITLE := "高中畢業直接就業"
 
 const JOBS: Array = [
 	{
@@ -137,12 +154,153 @@ static func job_name_of(id: String) -> String:
 	return str(job_def(id).get("name", ""))
 
 
-static func _education_matches(state, job: Dictionary) -> bool:
-	## Phase C hook. Tag ids and job ids bias the pool; anything else is ignored.
-	var edu := str(state.education_path).strip_edges()
-	if edu == "" or edu == "undecided":
+static func education_path_of(state) -> String:
+	return str(state.education_path).strip_edges()
+
+
+static func is_player_fork(path: String) -> bool:
+	return path == PATH_UNIVERSITY or path == PATH_HIGH_SCHOOL
+
+
+static func is_recognized_education(path: String) -> bool:
+	if path == "" or path == PATH_UNDECIDED:
 		return false
-	if edu == str(job.get("id", "")):
+	if is_player_fork(path):
+		return true
+	if GrowthPath.is_tag(path):
+		return true
+	return not job_def(path).is_empty()
+
+
+## Adult years only. undecided and unknown strings ask once; a fork, tag, or job id does not.
+static func needs_education_choice(state) -> bool:
+	if not is_adult(state):
+		return false
+	return not is_recognized_education(education_path_of(state))
+
+
+static func scene_after_review(state, review_next: String) -> String:
+	if review_next == "ending":
+		return ENDING_SCENE
+	if needs_education_choice(state):
+		return FORK_SCENE
+	return HUB_SCENE
+
+
+## Writes the fork only. Does not touch the five axes, mood, cash, skills, or interest tags.
+static func choose_education(state, path: String) -> bool:
+	if not is_player_fork(path):
+		return false
+	state.education_path = path
+	if state.has_signal("state_changed"):
+		state.state_changed.emit()
+	return true
+
+
+static func fork_lead(state) -> String:
+	var name := str(state.daughter_display_name())
+	if int(state.year) <= GameConfig.ADULT_START_YEAR:
+		return "高中的最後一頁合上了。%s成年的第一個春天，手帳想先問一件事：接下來，要先把書讀下去，還是先去工作？" % name
+	return "成年的手帳上，升學這一件還空著。%s現在補上就好。寫進去以後，日子還是她的。" % name
+
+
+static func fork_footnote() -> String:
+	return "兩條路都走得完，也都溫暖。這一筆只影響往後工作怎麼開始，以及結局裡關於成家的那一句。魅力、道德、人際、體力、學識，還有專長頁，都不會因為這一筆改掉。"
+
+
+static func university_blurb() -> String:
+	return "先把書讀下去。平日靠近學校、診所、設計、公所或編輯桌；日記裡還留著夜間進修、證照和作品集。"
+
+
+static func high_school_blurb() -> String:
+	return "先去工作。咖啡店、商店街、照顧、運動、旅行社會早一點出現。日子一樣溫暖，成家以後也可以慢慢寫。"
+
+
+static func written_body(path: String) -> String:
+	if path == PATH_UNIVERSITY:
+		return "寫下來了。大學進路。平日會先靠近學校、診所、設計室、公所或編輯桌。夜間進修那些月份還在日記裡。"
+	if path == PATH_HIGH_SCHOOL:
+		return "寫下來了。高中畢業，她直接去工作。咖啡店、商店街、照顧、運動、旅行社會早一點排進來。日子一樣可以過得很暖。"
+	return ""
+
+
+static func education_entry_line(state) -> String:
+	match education_path_of(state):
+		PATH_UNIVERSITY:
+			return "她寫下大學進路。平日先靠近學校、診所、設計、公所或編輯桌；日記裡的夜間進修、證照和作品集都還留著。"
+		PATH_HIGH_SCHOOL:
+			return "她高中畢業就直接就業。咖啡店、商店街、照顧、運動、旅行社會早一點出現在班表上。"
+		_:
+			return ""
+
+
+static func education_job_note(state) -> String:
+	var edu := education_path_of(state)
+	if edu == PATH_UNIVERSITY:
+		return "大學進路：學校、診所、設計、公所、編輯會排得前一點。其他工作若專長夠，也還在。"
+	if edu == PATH_HIGH_SCHOOL:
+		return "高中就業：咖啡店、商店街、照顧、運動、旅行社會排得前一點。其他工作若專長夠，也還在。"
+	if GrowthPath.is_tag(edu):
+		return "手帳上記著「%s」。對上的工作會排得前一點。" % GrowthPath.tag_name(edu)
+	return ""
+
+
+static func job_picker_blurb(state) -> String:
+	var base := "選一份就固定在平日。日記裡的三個月，仍是她自己的事。"
+	var note := education_job_note(state)
+	if note == "":
+		return base + "名單跟著專長與興趣。"
+	return base + note
+
+
+static func education_chip(state) -> String:
+	match education_path_of(state):
+		PATH_UNIVERSITY:
+			return "大學進路"
+		PATH_HIGH_SCHOOL:
+			return "高中就業"
+		_:
+			return ""
+
+
+static func education_ending_flavor(state) -> String:
+	var settled := bool(state.family_settled)
+	match education_path_of(state):
+		PATH_UNIVERSITY:
+			if settled:
+				return "大學那幾年的筆記收進了新家的抽屜。成家以後，她仍會留幾個晚上給還沒讀完的章節。"
+			return "她走大學進路，工作靠近學業和以後的專業。成家的那一頁先空著，家的燈仍為她留著。"
+		PATH_HIGH_SCHOOL:
+			if settled:
+				return "高中畢業她就先去工作。成家以後，班表和家裡的燈寫在同一頁，仍是她自己排的。"
+			return "她高中畢業就走進工作，班表來得早一些。成家可以以後再寫，一個人把日子過穩也很好。"
+		_:
+			return ""
+
+
+static func _education_rank(state, job_id: String) -> int:
+	var edu := education_path_of(state)
+	var list := PackedStringArray()
+	if edu == PATH_UNIVERSITY:
+		list = UNIVERSITY_JOBS
+	elif edu == PATH_HIGH_SCHOOL:
+		list = HIGH_SCHOOL_JOBS
+	else:
+		return 1000
+	var at := list.find(job_id)
+	return at if at >= 0 else 1000
+
+
+static func _education_matches(state, job: Dictionary) -> bool:
+	var edu := education_path_of(state)
+	if not is_recognized_education(edu):
+		return false
+	var jid := str(job.get("id", ""))
+	if edu == PATH_UNIVERSITY:
+		return jid in UNIVERSITY_JOBS
+	if edu == PATH_HIGH_SCHOOL:
+		return jid in HIGH_SCHOOL_JOBS
+	if edu == jid:
 		return true
 	var tags: Array = job.get("tags", [])
 	return edu in tags
@@ -181,6 +339,10 @@ static func available_jobs(state) -> Array:
 		var sb := job_score(state, b)
 		if sa != sb:
 			return sa > sb
+		var ra := _education_rank(state, str(a.get("id", "")))
+		var rb := _education_rank(state, str(b.get("id", "")))
+		if ra != rb:
+			return ra < rb
 		return str(a.get("id", "")) < str(b.get("id", ""))
 	)
 	return rows
@@ -307,7 +469,11 @@ static func career_bonus(ending_id: String, state) -> int:
 
 static func life_chip(state) -> String:
 	var settled := "成家" if bool(state.family_settled) else "一個人"
-	return "戀愛進度　%s　·　%s" % [romance_band(int(state.romance)), settled]
+	var core := "戀愛進度　%s　·　%s" % [romance_band(int(state.romance)), settled]
+	var path := education_chip(state)
+	if path == "":
+		return core
+	return "%s　·　%s" % [path, core]
 
 
 static func life_aside(state) -> String:
@@ -324,4 +490,7 @@ static func life_aside(state) -> String:
 		bits.append("有人慢慢走近，她沒有急著把名字寫進家裡。")
 	else:
 		bits.append("她沒有急著成家。一個人的房間也亮著，你仍是她回來看的地方。")
+	var edu := education_ending_flavor(state)
+	if edu != "":
+		bits.append(edu)
 	return "".join(bits)

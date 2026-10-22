@@ -1,7 +1,7 @@
 class_name GrowthPath
 extends RefCounted
 ## 國中（第 7 年）起的專長與興趣。
-## 五條屬性不動。升學分叉先留 education_path，這一輪不做選擇畫面。
+## 五條屬性不動。升學分叉只寫 education_path，不改這裡的經驗與興趣。
 ## 結局仍先看原本的門檻；通過的路線裡，優先度相差 8 以內才用下面的加分重排，加分最多 6。
 
 const MIDDLE_SCHOOL_YEAR := 7

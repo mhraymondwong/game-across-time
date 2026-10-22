@@ -73,6 +73,7 @@ var _job_btn: Button
 var _romance_lbl: Label
 var _job_popup: PanelContainer
 var _job_list: VBoxContainer
+var _job_note: Label
 var _adult_layer: CanvasLayer
 
 ## Approximate pin positions on 1280x720 map (fractions of viewport)
@@ -123,6 +124,10 @@ const PLACES := [
 
 
 func _ready() -> void:
+	# First adult entry: university or high-school career, before the job card and before a trip.
+	if get_tree().current_scene == self and Adulthood.needs_education_choice(GameState):
+		call_deferred("_open_education_fork")
+		return
 	# Even years: the trip page comes before this season's three months.
 	if Travel.offer_due(GameState):
 		call_deferred("_open_travel_offer")
@@ -1324,6 +1329,10 @@ func _refresh() -> void:
 	_refresh_mom()
 
 
+func _open_education_fork() -> void:
+	get_tree().change_scene_to_file(Adulthood.FORK_SCENE)
+
+
 func _open_travel_offer() -> void:
 	get_tree().change_scene_to_file("res://scenes/travel_offer.tscn")
 
@@ -1849,7 +1858,7 @@ func _maybe_adult_intro() -> void:
 	card.offset_left = 300
 	card.offset_top = 64
 	card.offset_right = 980
-	card.offset_bottom = 360
+	card.offset_bottom = 460
 	card.add_theme_stylebox_override("panel", UiStyle.panel_style(Color(1, 0.96, 0.97, 0.96), Color("F090A8"), 18))
 	_adult_layer.add_child(card)
 
@@ -1863,11 +1872,15 @@ func _maybe_adult_intro() -> void:
 	v.add_child(title)
 
 	var suggest := Adulthood.job_name_of(Adulthood.recommended_job(GameState))
-	for line in [
+	var lines: Array[String] = [
 		"她成年了。平日的工作會一直在，日記裡每個月仍只選一件自己的事。",
 		"可以靠近一個人、進修、把工作做深一點。成家要等戀愛進度夠了才出現，不排也很好。",
-		"依現在的專長和興趣，平日先從「%s」開始。之後還能換。" % suggest,
-	]:
+	]
+	var entry := Adulthood.education_entry_line(GameState)
+	if entry != "":
+		lines.append(entry)
+	lines.append("依現在的專長和興趣，平日先從「%s」開始。之後還能換。" % suggest)
+	for line in lines:
 		var lbl := Label.new()
 		lbl.text = line
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1930,6 +1943,8 @@ func _fill_job_panel() -> void:
 	for node in _job_list.get_children():
 		_job_list.remove_child(node)
 		node.free()
+	if _job_note:
+		_job_note.text = Adulthood.job_picker_blurb(GameState)
 	var current := str(GameState.adult_job)
 	for job in Adulthood.picker_jobs(GameState):
 		var jid := str(job.get("id", ""))
@@ -1980,12 +1995,12 @@ func _make_job_popup() -> PanelContainer:
 	UiStyle.apply_label(title, 24)
 	v.add_child(title)
 
-	var sub := Label.new()
-	sub.text = "選一份就固定在平日。日記裡的三個月，仍是她自己的事。名單跟著專長、興趣，以及已經寫下的升學方向（若有）。"
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	UiStyle.apply_label(sub, 13, true)
-	v.add_child(sub)
+	_job_note = Label.new()
+	_job_note.text = Adulthood.job_picker_blurb(GameState)
+	_job_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_job_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(_job_note, 13, true)
+	v.add_child(_job_note)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
