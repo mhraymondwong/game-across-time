@@ -1,8 +1,10 @@
 # Export the Godot 4.7.2 HTML5 build on every push to main.
 # The live site is GitHub Pages (.github/workflows/deploy-pages.yml), which
 # publishes the committed build/web. This workflow does not update that site.
-# Cloudflare Workers/Pages reject a single file over 25 MiB; index.pck and
-# index.wasm exceed that, so Cloudflare here stays optional.
+# scripts/export_web.sh writes index.pck plus every pack in export/packs.json
+# and fails if any file is 100 MiB or larger (GitHub's push limit).
+# Cloudflare Workers/Pages reject a single file over 25 MiB. index.wasm and
+# the .pck files exceed that, so Cloudflare here stays optional.
 # Artifact upload is the scaffold default. Cloudflare deploy runs only when
 # both Actions secrets exist, so a missing token does not fail this workflow.
 name: Export Web

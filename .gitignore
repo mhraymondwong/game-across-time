@@ -24,8 +24,9 @@ shots/playtest/
 !/build/web/
 !/build/web/**
 
-# Root-level *.pck still ignored above; keep the web pack tracked.
+# *.pck is ignored above. Re-include the Pages packs (main and secondary).
 !/build/web/*.pck
+!/build/web/packs/*.pck
 
 # Local Cloudflare / npm caches
 .wrangler/

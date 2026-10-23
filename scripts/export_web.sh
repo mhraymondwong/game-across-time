@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Headless Godot 4.7.2 Web export into build/web.
 # Commit that directory; .github/workflows/deploy-pages.yml publishes it to
-# GitHub Pages. Cloudflare hosting is optional and blocked by the 25 MiB file limit.
+# GitHub Pages. GitHub rejects any one file of 100 MiB or more, so heavy
+# directories listed in export/packs.json are exported as extra .pck files.
+# Cloudflare hosting is optional and still blocked by the 25 MiB file limit.
 # Usage:
 #   ./scripts/export_web.sh
 #   GODOT_BIN=/path/to/godot ./scripts/export_web.sh
@@ -86,6 +88,13 @@ if [[ ! -f export_presets.cfg ]] || ! grep -q '^name="Web"$' export_presets.cfg;
   fail "export preset \"${PRESET_NAME}\" not found in ${ROOT}/export_presets.cfg"
 fi
 
+if ! grep -q '^name="Web Pack"$' export_presets.cfg; then
+  fail "export preset \"Web Pack\" not found in ${ROOT}/export_presets.cfg"
+fi
+
+echo "Checking resource-pack manifest"
+python3 "${ROOT}/scripts/pack_manifest.py" check
+
 if [[ ! -f "$HEADERS_SRC" ]]; then
   fail "missing ${HEADERS_SRC} (Cloudflare content types for .wasm, .pck, and .js)"
 fi
@@ -106,8 +115,21 @@ if ! "$GODOT_PATH" --headless --path "$ROOT" --import; then
   fail "Godot import failed. If the log says the binary cannot start, install the editor's shared libraries (libX11, libGL, fontconfig)."
 fi
 
+echo "Exporting secondary resource packs"
+while IFS=$'\t' read -r pack_id pack_file; do
+  if [[ -z "${pack_id}" ]]; then
+    continue
+  fi
+  pack_dest="${OUT_DIR}/${pack_file}"
+  mkdir -p "$(dirname "$pack_dest")"
+  echo "Exporting pack ${pack_id} -> ${pack_dest}"
+  if ! RESOURCE_PACK_ROLE="${pack_id}" "$GODOT_PATH" --headless --path "$ROOT" --export-pack "Web Pack" "$pack_dest"; then
+    fail "Godot --export-pack failed for ${pack_id}. The Web Pack preset and addons/resource_packs must be enabled."
+  fi
+done < <(python3 "${ROOT}/scripts/pack_manifest.py" list-packs)
+
 echo "Exporting preset \"${PRESET_NAME}\" -> ${OUT_HTML}"
-if ! "$GODOT_PATH" --headless --path "$ROOT" --export-release "$PRESET_NAME" "$OUT_HTML"; then
+if ! RESOURCE_PACK_ROLE=main "$GODOT_PATH" --headless --path "$ROOT" --export-release "$PRESET_NAME" "$OUT_HTML"; then
   cat >&2 <<EOF
 error: Godot export failed.
 If the log mentions a missing template, install:
@@ -145,4 +167,13 @@ if [[ -f "$SPLASH_PNG" ]] && command -v pngquant >/dev/null 2>&1; then
     echo "pngquant left the boot splash unchanged"
   fi
 fi
+python3 "${ROOT}/scripts/pack_manifest.py" write-web "$OUT_DIR"
+python3 "${ROOT}/scripts/pack_manifest.py" check-sizes "$OUT_DIR"
+python3 "${ROOT}/scripts/pack_manifest.py" check-layout "$OUT_DIR"
+
+echo "Opening secondary packs with Godot"
+if ! "$GODOT_PATH" --headless --path "$ROOT" --script res://scripts/check_exported_packs.gd; then
+  fail "Godot could not load one of the exported resource packs"
+fi
+
 echo "Web export ready: ${OUT_DIR}"

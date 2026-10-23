@@ -1,6 +1,10 @@
 # Publish the committed Godot 4.7.2 HTML5 export (build/web) to GitHub Pages.
 # Live site: https://mhraymondwong.github.io/game-across-time/
-# Does not re-export. Cloudflare is not the host (25 MiB per-file limit).
+# Does not re-export. The directory may contain index.pck plus packs/*.pck
+# and packs.json (see export/packs.json). Relative URLs in index.html stay
+# under /game-across-time/ because Pages redirects to a trailing slash.
+# Cloudflare is not the host (25 MiB per-file limit). GitHub rejects a
+# single file of 100 MiB or more; the size check below fails the job first.
 name: Deploy Godot web build to GitHub Pages
 
 on:
@@ -29,6 +33,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      - name: Reject files at or above GitHub's 100 MiB limit
+        run: python3 scripts/pack_manifest.py check-sizes build/web
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

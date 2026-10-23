@@ -558,3 +558,17 @@
 
 **狀態**：Phase C；smoke 覆蓋只問一次、存檔往返、大學與高中就業的工作名單、專長仍能打開名單外的工作、五軸與專長不被改寫、結局成家句、以及 216 個月仍走完。沒有重匯網頁版。
 
+## 28. 網頁資源包（多個 .pck）
+
+GitHub 拒絕單檔 **100 MiB** 以上的推送。主包 `build/web/index.pck` 再加大就過不去。不要靠把貼圖改成 Lossy 來硬壓；匯入維持無損。重的目錄改走額外的 `.pck`，開場在標題畫面之前載入。
+
+清單是 `export/packs.json`。現在只有 `family`：`assets/family/` → `build/web/packs/family.pck`。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。
+
+之後再加一包（例如遠行靜圖）只要：
+
+1. 在 `export/packs.json` 的 `packs` 加一筆：`id`、`file`（`packs/某個名字.pck`）、`include`（`res://` 目錄前綴）、`probe`（該目錄裡一定有的一張圖）。
+2. 在 `export_presets.cfg` 的 Web preset，`exclude_filter` 補上對應的 `目錄/*`（跟現有的 `assets/family/*` 並列）。
+3. 跑 `./scripts/export_web.sh`，提交 `build/web`（含新的 `.pck` 與 `packs.json`）。
+
+不用改載入程式。匯出腳本會擋下任何一個 ≥ 100 MiB 的檔。步驟與檢查見 `export/README.md`。
+

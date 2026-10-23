@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "family",
+      "file": "packs/family.pck",
+      "include": [
+        "res://assets/family/"
+      ],
+      "probe": "res://assets/family/daughter_early.png",
+      "bytes": 19816148
+    }
+  ]
+}

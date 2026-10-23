@@ -2,17 +2,17 @@
 
 > **正式站是 GitHub Pages，不是 Cloudflare。**
 >
-> Cloudflare Workers 與 Cloudflare Pages 的單一檔案上限是 **25 MiB**。已匯出的 `build/web/index.pck`（約 80 MiB）與 `build/web/index.wasm`（約 38 MiB）都超過這個上限，所以這包遊戲不能部署到 Cloudflare。
+> Cloudflare Workers 與 Cloudflare Pages 的單一檔案上限是 **25 MiB**。已匯出的 `build/web/index.pck`、`build/web/packs/*.pck` 與 `build/web/index.wasm` 都超過這個上限，所以這包遊戲不能部署到 Cloudflare。GitHub 的單檔上限是 100 MiB；額外資源包就是為了那個上限，見 [export/README.md](../export/README.md)。
 >
 > 線上版本：<https://mhraymondwong.github.io/game-across-time/>
 >
 > 發佈用 `.github/workflows/deploy-pages.yml`（推上 `main`，或手動 `workflow_dispatch`）。它只上傳已 commit 的 `build/web`，不會在 CI 裡重跑約 118 MiB 的 Godot 匯出，也不需要任何 Cloudflare secret。
 >
-> 子路徑 `/game-across-time/` **不需要** `<base href>`，也 **不需要** 為了 Pages 重新匯出。`index.html` 的 `index.js`、`index.wasm`、`index.pck` 都是相對網址。GitHub Pages 會把 `https://mhraymondwong.github.io/game-across-time` 301 到結尾有斜線的目錄，相對路徑就留在 `/game-across-time/` 裡。這與 `game-chromablock-out` 相同。若寫死 `<base href="/game-across-time/">`，本機用網站根目錄預覽 `build/web` 時會抓錯檔。`export_presets.cfg` 的 `html/head_include` 維持空白。
+> 子路徑 `/game-across-time/` **不需要** `<base href>`，也 **不需要** 為了 Pages 重新匯出。`index.html` 的 `index.js`、`index.wasm`、`index.pck`、`packs.json`、`packs/*.pck` 都是相對網址。GitHub Pages 會把 `https://mhraymondwong.github.io/game-across-time` 301 到結尾有斜線的目錄，相對路徑就留在 `/game-across-time/` 裡。這與 `game-chromablock-out` 相同。若寫死 `<base href="/game-across-time/">`，本機用網站根目錄預覽 `build/web` 時會抓錯檔。`export_presets.cfg` 的 `html/head_include` 維持空白。
 >
 > 下面的 `wrangler.toml`、`export-web.yml` 與 Dashboard 清單是選用／歷史說明。
 
-English: the live host is GitHub Pages. Cloudflare Workers/Pages reject a single file over 25 MiB, and this export exceeds that (`index.pck` ~80 MiB, `index.wasm` ~38 MiB). Relative asset URLs are enough under `/game-across-time/` because Pages redirects to a trailing slash. No `<base href>` and no re-export. The Cloudflare scaffold below is optional and historical.
+English: the live host is GitHub Pages. Cloudflare Workers/Pages reject a single file over 25 MiB, and this export exceeds that (`index.pck`, `packs/*.pck`, and `index.wasm`). GitHub's own cap is 100 MiB per file; extra packs are how the web build stays under it (`export/README.md`). Relative asset URLs, including `packs.json`, are enough under `/game-across-time/` because Pages redirects to a trailing slash. No `<base href>` and no re-export. The Cloudflare scaffold below is optional and historical.
 
 《時光裡的她》是 Godot 4.7.2 專案。瀏覽器版是已匯出的 HTML5 靜態檔（`build/web`）。Workers 與 Pages 不會執行 Godot。下面是先前為 Cloudflare 準備的清單；正式站不走這條路。
 

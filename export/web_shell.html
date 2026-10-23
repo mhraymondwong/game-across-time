@@ -290,19 +290,114 @@ const engine = new Engine(GODOT_CONFIG);
 		}
 	} else {
 		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
-				}
-			},
-		}).then(() => {
+		// Extra .pck files from packs.json, same directory as this page.
+		// Keep these URLs relative. Pages redirects to a trailing slash, so
+		// do not add a base href element and do not hard-code the project path.
+		// Files are copied into the engine FS before start, so the autoload
+		// can load them before the title scene. The diary splash stays up.
+		preloadExtraPacks(engine).then(function () {
+			return engine.startGame({
+				'onProgress': function (current, total) {
+					if (current > 0 && total > 0) {
+						statusProgress.value = current;
+						statusProgress.max = total;
+					} else {
+						statusProgress.removeAttribute('value');
+						statusProgress.removeAttribute('max');
+					}
+				},
+			});
+		}).then(function () {
 			setStatusMode('hidden');
 		}, displayFailureNotice);
+	}
+
+	function preloadExtraPacks(engineInstance) {
+		return fetch('packs.json', { cache: 'no-cache' }).then(function (response) {
+			if (response.status === 404) {
+				return null;
+			}
+			if (!response.ok) {
+				throw new Error('讀不到 packs.json（' + response.status + '）');
+			}
+			return response.text();
+		}).then(function (body) {
+			if (body == null) {
+				return;
+			}
+			var manifest;
+			try {
+				manifest = JSON.parse(body);
+			} catch (err) {
+				throw new Error('packs.json 不是合法的 JSON');
+			}
+			var encoded = new TextEncoder().encode(body);
+			return engineInstance.preloadFile(encoded, '/packs.json').then(function () {
+				var packs = manifest && manifest.packs ? manifest.packs : [];
+				if (!Array.isArray(packs)) {
+					throw new Error('packs.json 的 packs 必須是陣列');
+				}
+				return downloadPacks(engineInstance, packs);
+			});
+		});
+	}
+
+	function downloadPacks(engineInstance, packs) {
+		var index = 0;
+		function next() {
+			if (index >= packs.length) {
+				return Promise.resolve();
+			}
+			var entry = packs[index];
+			index += 1;
+			var file = entry && entry.file;
+			if (typeof file !== 'string' || file.length === 0) {
+				return Promise.reject(new Error('packs.json 裡有一個資源包沒有 file'));
+			}
+			if (file.indexOf('..') !== -1 || file.charAt(0) === '/' || file.indexOf('://') !== -1 || file.indexOf('\\') !== -1) {
+				return Promise.reject(new Error('資源包必須用相對路徑：' + file));
+			}
+			return fetch(file, { cache: 'no-cache' }).then(function (response) {
+				if (!response.ok) {
+					throw new Error('讀不到資源包 ' + file + '（' + response.status + '）');
+				}
+				var total = Number(response.headers.get('Content-Length')) || Number(entry.bytes) || 0;
+				if (!response.body || !response.body.getReader) {
+					return response.arrayBuffer().then(function (buffer) {
+						return engineInstance.preloadFile(buffer, '/' + file);
+					});
+				}
+				var reader = response.body.getReader();
+				var chunks = [];
+				var received = 0;
+				function readChunk() {
+					return reader.read().then(function (result) {
+						if (result.done) {
+							var merged = new Uint8Array(received);
+							var offset = 0;
+							chunks.forEach(function (chunk) {
+								merged.set(chunk, offset);
+								offset += chunk.length;
+							});
+							console.log('[packs] preloaded ' + file + ' (' + received + ' bytes)');
+							return engineInstance.preloadFile(merged, '/' + file);
+						}
+						chunks.push(result.value);
+						received += result.value.length;
+						if (total > 0) {
+							statusProgress.max = total;
+							statusProgress.value = received;
+						} else {
+							statusProgress.removeAttribute('value');
+							statusProgress.removeAttribute('max');
+						}
+						return readChunk();
+					});
+				}
+				return readChunk();
+			}).then(next);
+		}
+		return next();
 	}
 }());
 		</script>
