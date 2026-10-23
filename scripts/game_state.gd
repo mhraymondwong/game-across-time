@@ -40,9 +40,10 @@ var save_name: String = ""
 var wants_new_game_name: bool = false
 var daughter_name: String = "小悠"
 ## Skill id -> XP. Levels are derived. Interest tag id -> points.
-## education_path is a Phase C hook. No choice UI in this build.
-## Tag ids (art/stem/service/letters/sport/business) or a job id mildly bias the adult job pool.
-## "undecided" and unknown strings (including a leftover "university") do not.
+## education_path: "undecided" until the adulthood diary asks.
+## Player fork values are "university" and "high_school". They weight the adult job
+## pool and the family line on an ending. They do not change the five axes or skills.
+## Older saves may still hold a tag id or job id; those keep the mild job bias and skip the card.
 var skill_xp: Dictionary = {}
 var interest_points: Dictionary = {}
 var education_path: String = "undecided"

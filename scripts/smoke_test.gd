@@ -1443,9 +1443,15 @@ func _run() -> void:
 		printerr("[smoke] FAIL education_path letters bias %s" % str(edu_ids))
 		phase13_ok = false
 	gs.education_path = "university"
+	var uni_ids: PackedStringArray = []
 	var uni_jobs: Array = Adulthood.available_jobs(gs)
-	if uni_jobs.size() != 1 or str(uni_jobs[0].get("id", "")) != "shop_staff":
-		printerr("[smoke] FAIL unknown education_path should not widen the pool")
+	for uni_job in uni_jobs:
+		uni_ids.append(str(uni_job.get("id", "")))
+	if not uni_ids.has("clinic_aide") or not uni_ids.has("school_aide") or not uni_ids.has("desk_writer") or not uni_ids.has("shop_staff"):
+		printerr("[smoke] FAIL university pool %s" % str(uni_ids))
+		phase13_ok = false
+	elif uni_ids.has("cafe_shift") or str(uni_jobs[0].get("id", "")) != "school_aide":
+		printerr("[smoke] FAIL university should open study jobs first, got %s" % str(uni_ids))
 		phase13_ok = false
 	else:
 		print("[smoke] adult job pool OK")
@@ -1748,6 +1754,206 @@ func _run() -> void:
 	if phase14_ok:
 		print("[smoke] phase B lightbox + places OK")
 
+	# —— Phase C: university vs high-school career entry ——
+	var phase15_ok := true
+	gs.begin_new_game()
+	gs.year = 12
+	if Adulthood.needs_education_choice(gs) or Adulthood.scene_after_review(gs, "hub") != Adulthood.HUB_SCENE:
+		printerr("[smoke] FAIL education choice before adulthood")
+		phase15_ok = false
+	gs.year = 13
+	if not Adulthood.needs_education_choice(gs):
+		printerr("[smoke] FAIL undecided adult should ask")
+		phase15_ok = false
+	elif Adulthood.scene_after_review(gs, "hub") != Adulthood.FORK_SCENE:
+		printerr("[smoke] FAIL y12 continue should open the fork")
+		phase15_ok = false
+	elif Adulthood.scene_after_review(gs, "ending") != Adulthood.ENDING_SCENE:
+		printerr("[smoke] FAIL ending route changed")
+		phase15_ok = false
+	gs.education_path = "not-a-path"
+	if not Adulthood.needs_education_choice(gs):
+		printerr("[smoke] FAIL unknown education_path should ask once")
+		phase15_ok = false
+	gs.education_path = "letters"
+	if Adulthood.needs_education_choice(gs):
+		printerr("[smoke] FAIL legacy tag should keep its bias and skip the card")
+		phase15_ok = false
+	var axes_before := {
+		"charm": int(gs.charm), "morals": int(gs.morals), "social": int(gs.social),
+		"stamina": int(gs.stamina), "academia": int(gs.academia),
+	}
+	gs.skill_xp = {"piano": 2}
+	gs.interest_points = {"art": 3}
+	gs.education_path = "undecided"
+	if not Adulthood.choose_education(gs, "university"):
+		printerr("[smoke] FAIL choose university")
+		phase15_ok = false
+	elif str(gs.education_path) != "university" or Adulthood.needs_education_choice(gs):
+		printerr("[smoke] FAIL university did not persist")
+		phase15_ok = false
+	elif int(gs.charm) != int(axes_before["charm"]) or int(gs.academia) != int(axes_before["academia"]) or int(gs.morals) != int(axes_before["morals"]) or int(gs.social) != int(axes_before["social"]) or int(gs.stamina) != int(axes_before["stamina"]):
+		printerr("[smoke] FAIL education choice touched an axis")
+		phase15_ok = false
+	elif GrowthPath.xp_of(gs, "piano") != 2 or GrowthPath.points_of(gs, "art") != 3:
+		printerr("[smoke] FAIL education choice touched skills")
+		phase15_ok = false
+	var hs_only := PackedStringArray()
+	gs.skill_xp = {}
+	gs.interest_points = {}
+	gs.education_path = "high_school"
+	for hs_job in Adulthood.available_jobs(gs):
+		hs_only.append(str(hs_job.get("id", "")))
+	if not hs_only.has("cafe_shift") or not hs_only.has("neighbor_care") or not hs_only.has("shop_staff") or hs_only.has("clinic_aide"):
+		printerr("[smoke] FAIL high school pool %s" % str(hs_only))
+		phase15_ok = false
+	elif hs_only.is_empty() or str(Adulthood.available_jobs(gs)[0].get("id", "")) != "cafe_shift":
+		printerr("[smoke] FAIL high school should open work first")
+		phase15_ok = false
+	gs.interest_points = {"art": 4}
+	gs.skill_xp = {"paint": 3}
+	var hs_art := false
+	for hs_art_job in Adulthood.available_jobs(gs):
+		if str(hs_art_job.get("id", "")) == "design_studio":
+			hs_art = true
+	if not hs_art:
+		printerr("[smoke] FAIL high school locked out a skilled job")
+		phase15_ok = false
+	gs.romance = 80
+	gs.family_settled = true
+	gs.adult_job = "school_aide"
+	var uni_end: Dictionary = Endings.evaluate(gs)
+	gs.education_path = "university"
+	var uni_family: Dictionary = Endings.evaluate(gs)
+	if str(uni_end.get("id", "")) != str(uni_family.get("id", "")):
+		printerr("[smoke] FAIL education path changed the ending id")
+		phase15_ok = false
+	elif not str(uni_family.get("life_line", "")).contains("大學") or not str(uni_family.get("life_line", "")).contains("成家"):
+		printerr("[smoke] FAIL university family flavor %s" % str(uni_family.get("life_line", "")))
+		phase15_ok = false
+	elif not str(uni_family.get("life_chip", "")).contains("大學進路") or not str(uni_family.get("life_chip", "")).contains("成家"):
+		printerr("[smoke] FAIL university life chip %s" % str(uni_family.get("life_chip", "")))
+		phase15_ok = false
+	gs.education_path = "high_school"
+	gs.family_settled = false
+	gs.romance = 0
+	var hs_end: Dictionary = Endings.evaluate(gs)
+	if not str(hs_end.get("life_line", "")).contains("高中") or not str(hs_end.get("life_line", "")).contains("沒有急著成家"):
+		printerr("[smoke] FAIL high school family flavor %s" % str(hs_end.get("life_line", "")))
+		phase15_ok = false
+	elif not str(hs_end.get("life_chip", "")).contains("高中就業") or not str(hs_end.get("life_chip", "")).contains("一個人"):
+		printerr("[smoke] FAIL high school life chip %s" % str(hs_end.get("life_chip", "")))
+		phase15_ok = false
+	if not gs.save_game(0):
+		printerr("[smoke] FAIL education save")
+		phase15_ok = false
+	gs.begin_new_game()
+	if str(gs.education_path) != "undecided" or not gs.load_game(0) or str(gs.education_path) != "high_school":
+		printerr("[smoke] FAIL education_path high_school roundtrip")
+		phase15_ok = false
+	elif Adulthood.needs_education_choice(gs):
+		printerr("[smoke] FAIL saved fork should not ask again")
+		phase15_ok = false
+	gs.delete_save(0)
+	gs.from_dict({"year": 15, "season": 0})
+	if str(gs.education_path) != "undecided" or not Adulthood.needs_education_choice(gs):
+		printerr("[smoke] FAIL old adult save should ask")
+		phase15_ok = false
+
+	gs.begin_new_game()
+	gs.year = 13
+	gs.education_path = "undecided"
+	gs.flags["tutorial_done"] = true
+	gs.flags["growth_tutorial_done"] = true
+	gs.flags["confide_rolled_13_0"] = true
+	var fork_packed = load("res://scenes/education_fork.tscn")
+	if fork_packed == null:
+		printerr("[smoke] FAIL education_fork scene")
+		phase15_ok = false
+	else:
+		var fork: Node = fork_packed.instantiate()
+		root.add_child(fork)
+		var choose_uni: Node = fork.find_child("ChooseUniversity", true, false)
+		var choose_hs: Node = fork.find_child("ChooseHighSchool", true, false)
+		var saw_lead := false
+		var fork_walk: Array = [fork]
+		while fork_walk.size() > 0:
+			var fork_node: Node = fork_walk.pop_back()
+			if fork_node is Label and str(fork_node.text).contains("高中的最後一頁"):
+				saw_lead = true
+			for fork_child in fork_node.get_children():
+				fork_walk.append(fork_child)
+		if choose_uni == null or choose_hs == null or not saw_lead:
+			printerr("[smoke] FAIL fork buttons lead=%s" % str(saw_lead))
+			phase15_ok = false
+		elif not str(choose_uni.text).contains(Adulthood.COPY_UNIVERSITY_TITLE) or not str(choose_hs.text).contains(Adulthood.COPY_HIGH_SCHOOL_TITLE):
+			printerr("[smoke] FAIL fork button copy")
+			phase15_ok = false
+		else:
+			choose_uni.pressed.emit()
+			if str(gs.education_path) != "university" or Adulthood.needs_education_choice(gs):
+				printerr("[smoke] FAIL fork click did not store university")
+				phase15_ok = false
+			elif fork.find_child("ChooseUniversity", true, false) != null:
+				printerr("[smoke] FAIL fork still offering after the choice")
+				phase15_ok = false
+			else:
+				var saw_written := false
+				var written_walk: Array = [fork]
+				while written_walk.size() > 0:
+					var written_node: Node = written_walk.pop_back()
+					if written_node is Label and str(written_node.text).contains("寫下來了"):
+						saw_written = true
+					for written_child in written_node.get_children():
+						written_walk.append(written_child)
+				if not saw_written:
+					printerr("[smoke] FAIL fork confirmation")
+					phase15_ok = false
+				else:
+					print("[smoke] education fork once OK")
+		fork.free()
+
+	gs.begin_new_game()
+	gs.year = 13
+	gs.education_path = "high_school"
+	gs.flags["tutorial_done"] = true
+	gs.flags["growth_tutorial_done"] = true
+	gs.flags["adult_job_intro_done"] = false
+	gs.flags["confide_rolled_13_0"] = true
+	var edu_hub: Node = load("res://scenes/home_hub.tscn").instantiate()
+	root.add_child(edu_hub)
+	var saw_entry := false
+	var saw_note := false
+	var edu_walk: Array = [edu_hub]
+	while edu_walk.size() > 0:
+		var edu_node: Node = edu_walk.pop_back()
+		if edu_node is Label and str(edu_node.text).contains("直接就業"):
+			saw_entry = true
+		for edu_child in edu_node.get_children():
+			edu_walk.append(edu_child)
+	edu_hub._show_job_panel()
+	edu_walk = [edu_hub]
+	while edu_walk.size() > 0:
+		var note_node: Node = edu_walk.pop_back()
+		if note_node is Label and str(note_node.text).contains("高中就業"):
+			saw_note = true
+		for note_child in note_node.get_children():
+			edu_walk.append(note_child)
+	if not saw_entry or not saw_note:
+		printerr("[smoke] FAIL adult entry copy intro=%s jobs=%s" % [str(saw_entry), str(saw_note)])
+		phase15_ok = false
+	else:
+		print("[smoke] education copy on hub OK")
+	edu_hub.free()
+
+	var review_gate := FileAccess.get_file_as_string("res://scripts/year_review.gd")
+	var hub_gate := FileAccess.get_file_as_string("res://scripts/home_hub.gd")
+	if not review_gate.contains("scene_after_review") or not hub_gate.contains("needs_education_choice") or not hub_gate.contains("_open_education_fork"):
+		printerr("[smoke] FAIL education gate not wired")
+		phase15_ok = false
+	if phase15_ok:
+		print("[smoke] phase C education fork OK")
+
 	gs.begin_new_game()
 
 	var ids: Array = Activities.ids()
@@ -1784,7 +1990,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false
