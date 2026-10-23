@@ -3,8 +3,9 @@ extends RefCounted
 ## age_bands_family — 女兒、媽媽、爸爸各有五段外貌。
 ## 年段跟既有立繪階段對齊（每兩年一階），成年另成一段。
 ##
-## TODO(art): 各段的專屬圖都還沒畫。解析時若檔案不在，就退回現在這一張，
-## 不要另造暫代圖。檔名進來之後，不用改呼叫端。
+## TODO(art): 女兒、媽媽、爸爸與全家福的五段圖已在 assets/family/。
+## 解析時若檔案不在，就退回現在這一張，不要另造暫代圖。
+## 遠行 assets/travel/{dest}_{band} 仍缺，繼續退回 travel_{dest}_family.jpg。
 ##
 ## 檔名裡的 band：
 ##   early       幼年  第 1–2 年（約 6–7 歲）  階段 0
@@ -18,7 +19,7 @@ extends RefCounted
 ##   assets/family/daughter_{band}.png        → 既有季立繪（含成年缺檔回青年）
 ##   assets/family/mom_{band}_cutout.png      → mom_fullbody_cutout.png
 ##   assets/family/mom_{band}_bust.png        → mom_bust_cutout.png
-##   assets/family/dad_{band}.png             → （還沒有爸爸立繪，退路是空字串）
+##   assets/family/dad_{band}.png             → （畫面上還沒有位子；缺檔退路是空字串）
 ##   assets/family/family_{band}.jpg          → family_photo_child.jpg
 
 const BANDS: Array[String] = ["early", "elementary", "junior", "senior", "adult"]
