@@ -19,6 +19,17 @@ func _run() -> void:
 	else:
 		print("[smoke] GameState autoload found")
 
+	var packs_ok := true
+	var pack_node := root.get_node_or_null("ResourcePacks")
+	if pack_node == null:
+		printerr("[smoke] FAIL: ResourcePacks autoload missing")
+		packs_ok = false
+	elif not pack_node.ensure_ready():
+		printerr("[smoke] FAIL: resource packs %s" % pack_node.status_line())
+		packs_ok = false
+	else:
+		print("[smoke] resource packs %s" % pack_node.status_line())
+
 	# —— Growth stage table ——
 	var stage_ok := true
 	var expect_stages := {
@@ -1990,7 +2001,7 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false

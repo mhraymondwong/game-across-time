@@ -24,7 +24,12 @@ boot_splash/use_filter=true
 
 [autoload]
 
+ResourcePacks="*res://scripts/resource_packs.gd"
 GameState="*res://scripts/game_state.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/resource_packs/plugin.cfg")
 
 [display]
 
