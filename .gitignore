@@ -28,6 +28,9 @@ shots/playtest/
 !/build/web/*.pck
 !/build/web/packs/*.pck
 
+# Local background plates used to rebuild assets/album. Not imported (.gdignore).
+/art_src/
+
 # Local Cloudflare / npm caches
 .wrangler/
 node_modules/

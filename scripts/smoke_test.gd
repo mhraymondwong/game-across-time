@@ -885,11 +885,14 @@ func _run() -> void:
 	elif AgeLooks.daughter_portrait(16, 2) != "res://assets/family/daughter_adult.png":
 		printerr("[smoke] FAIL daughter band art %s" % AgeLooks.daughter_portrait(16, 2))
 		phase10_ok = false
-	elif Travel.thumb_for("japan", 2) != str(Travel.get_dest("japan").get("thumb", "")) or Travel.thumb_for("japan", 8) != Travel.thumb_for("japan", 18):
-		printerr("[smoke] FAIL japan thumb_for fallback")
+	elif Travel.thumb_for("japan", 2) != "res://assets/album/travel_japan_early.jpg" or Travel.thumb_for("japan", 8) != "res://assets/album/travel_japan_junior.jpg":
+		printerr("[smoke] FAIL japan age-band thumb %s / %s" % [Travel.thumb_for("japan", 2), Travel.thumb_for("japan", 8)])
 		phase10_ok = false
-	elif Travel.thumb_for("europe", 12) != str(Travel.get_dest("europe").get("thumb", "")):
-		printerr("[smoke] FAIL europe thumb_for")
+	elif Travel.thumb_for("japan", 18) != str(Travel.get_dest("japan").get("thumb", "")) or Travel.thumb_for("japan", 8) == Travel.thumb_for("japan", 18):
+		printerr("[smoke] FAIL japan adult thumb fallback %s" % Travel.thumb_for("japan", 18))
+		phase10_ok = false
+	elif Travel.thumb_for("europe", 12) != "res://assets/album/travel_europe_senior.jpg":
+		printerr("[smoke] FAIL europe thumb_for %s" % Travel.thumb_for("europe", 12))
 		phase10_ok = false
 	else:
 		print("[smoke] age_bands_family portraits OK")
@@ -949,7 +952,7 @@ func _run() -> void:
 		var saw_trip := false
 		for trip_entry in gs.album:
 			if str(trip_entry.get("id", "")) == "travel_china_y2":
-				saw_trip = str(trip_entry.get("thumb_path", "")).ends_with("travel_china_family.jpg")
+				saw_trip = str(trip_entry.get("thumb_path", "")) == "res://assets/album/travel_china_early.jpg"
 				if not str(trip_entry.get("body", "")).contains("媽媽"):
 					saw_trip = false
 		if not saw_trip:
@@ -1992,6 +1995,77 @@ func _run() -> void:
 			return "rest_park"
 		return pick
 
+	gs.begin_new_game()
+	gs.cash = 80000
+	gs.mood = 90
+	gs.charm = 80
+	gs.stamina = 80
+	gs.academia = 80
+	gs.morals = 80
+	gs.flags["visited_school"] = 3
+	gs.flags["visited_shops"] = 3
+	gs.flags["visited_culture"] = 3
+	gs.flags["visited_park"] = 3
+	gs.year = 1
+	gs.season = 0
+	gs.season_schedule = ["study_arts", "social_friends", "rest_sleep"] as Array[String]
+	gs.resolve_season()
+	gs.year = 1
+	gs.season = 1
+	gs.season_schedule = ["study_arts", "rest_park", "rest_sleep"] as Array[String]
+	gs.resolve_season()
+	gs.last_season_event = {
+		"id": "summer_beach",
+		"title": "夏天去海灘",
+		"body": "一家人站在沙上。",
+		"media_still": "beach",
+	}
+	gs.record_season_memories()
+	gs.year = 2
+	gs.season = 1
+	gs.last_season_event = {
+		"id": "summer_beach",
+		"title": "夏天去海灘",
+		"body": "同一段年紀又去了一次海邊。",
+		"media_still": "beach",
+	}
+	gs.record_season_memories()
+	var arts_n := 0
+	var beach_n := 0
+	for ruled in gs.album:
+		var ruled_path := str(ruled.get("thumb_path", ""))
+		if ruled_path.ends_with("arts_early.jpg"):
+			arts_n += 1
+		if ruled_path.ends_with("beach_early.jpg"):
+			beach_n += 1
+		if AlbumPhotos.is_forbidden(ruled_path) or ruled_path.contains("weather/"):
+			printerr("[smoke] FAIL album stamp %s" % ruled_path)
+			phase14_ok = false
+	if arts_n != 1 or beach_n != 1:
+		printerr("[smoke] FAIL album repeat arts=%d beach=%d" % [arts_n, beach_n])
+		phase14_ok = false
+	gs.year = 4
+	gs.season = 1
+	gs.cash = 80000
+	var china_a: Dictionary = Travel.depart(gs, "china")
+	gs.year = 6
+	gs.season = 1
+	gs.cash = 80000
+	var china_b: Dictionary = Travel.depart(gs, "china")
+	if str(china_a.get("thumb", "")) != "res://assets/album/travel_china_elementary.jpg" or str(china_b.get("thumb", "")) != "res://assets/album/travel_china_elementary_b.jpg":
+		printerr("[smoke] FAIL travel variants %s / %s" % [str(china_a.get("thumb", "")), str(china_b.get("thumb", ""))])
+		phase14_ok = false
+	elif AlbumPhotos.claim(AlbumPhotos.used_paths(gs.album), "travel_china", 6) != "":
+		printerr("[smoke] FAIL a third china photo in the same band")
+		phase14_ok = false
+	else:
+		var ruled_audit := AlbumPhotos.audit(gs.album)
+		if ruled_audit != "":
+			printerr("[smoke] FAIL album rules %s" % ruled_audit)
+			phase14_ok = false
+		else:
+			print("[smoke] album photo rules OK")
+
 	var ending: Dictionary = gs.run_full_auto(picker)
 	var months: int = gs.months_played
 	var expected: int = GameConfig.TOTAL_MONTHS
@@ -2005,6 +2079,20 @@ func _run() -> void:
 
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
+	var played_album := AlbumPhotos.audit(gs.album)
+	if played_album != "":
+		printerr("[smoke] FAIL played album %s" % played_album)
+		phase14_ok = false
+	else:
+		var played_paths := {}
+		for played in gs.album:
+			var played_path := str(played.get("thumb_path", ""))
+			played_paths[played_path] = str(played.get("title", ""))
+		if played_paths.size() != gs.album.size():
+			printerr("[smoke] FAIL played album path count")
+			phase14_ok = false
+		else:
+			print("[smoke] played album %d unique photos" % gs.album.size())
 
 	var dialogue_ok := true
 	if load("res://scripts/dialogue_chrome.gd") == null:

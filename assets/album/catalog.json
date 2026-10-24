@@ -1,0 +1,606 @@
+{
+  "photos": [
+    {
+      "path": "res://assets/album/arts_early.jpg",
+      "subject": "daughter",
+      "theme": "arts",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/arts_elementary.jpg",
+      "subject": "daughter",
+      "theme": "arts",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/arts_junior.jpg",
+      "subject": "daughter",
+      "theme": "arts",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/arts_senior.jpg",
+      "subject": "daughter",
+      "theme": "arts",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/cafe_senior.jpg",
+      "subject": "daughter",
+      "theme": "cafe",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/friends_early.jpg",
+      "subject": "daughter",
+      "theme": "friends",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/friends_elementary.jpg",
+      "subject": "daughter",
+      "theme": "friends",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/friends_junior.jpg",
+      "subject": "daughter",
+      "theme": "friends",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/friends_senior.jpg",
+      "subject": "daughter",
+      "theme": "friends",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/friends_adult.jpg",
+      "subject": "daughter",
+      "theme": "friends",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/daytrip_elementary.jpg",
+      "subject": "family",
+      "theme": "daytrip",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/daytrip_junior.jpg",
+      "subject": "family",
+      "theme": "daytrip",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/daytrip_senior.jpg",
+      "subject": "family",
+      "theme": "daytrip",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/daytrip_adult.jpg",
+      "subject": "family",
+      "theme": "daytrip",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/library_elementary.jpg",
+      "subject": "daughter",
+      "theme": "library",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/library_junior.jpg",
+      "subject": "daughter",
+      "theme": "library",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/library_senior.jpg",
+      "subject": "daughter",
+      "theme": "library",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/festival_early.jpg",
+      "subject": "daughter",
+      "theme": "festival",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/festival_elementary.jpg",
+      "subject": "daughter",
+      "theme": "festival",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/festival_junior.jpg",
+      "subject": "daughter",
+      "theme": "festival",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/festival_senior.jpg",
+      "subject": "daughter",
+      "theme": "festival",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/festival_adult.jpg",
+      "subject": "daughter",
+      "theme": "festival",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/elder_early.jpg",
+      "subject": "family",
+      "theme": "elder",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/elder_elementary.jpg",
+      "subject": "family",
+      "theme": "elder",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/elder_junior.jpg",
+      "subject": "family",
+      "theme": "elder",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/elder_senior.jpg",
+      "subject": "family",
+      "theme": "elder",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/elder_adult.jpg",
+      "subject": "family",
+      "theme": "elder",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/perform_elementary.jpg",
+      "subject": "daughter",
+      "theme": "perform",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/perform_junior.jpg",
+      "subject": "daughter",
+      "theme": "perform",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/perform_senior.jpg",
+      "subject": "daughter",
+      "theme": "perform",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/perform_adult.jpg",
+      "subject": "daughter",
+      "theme": "perform",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/reading_elementary.jpg",
+      "subject": "daughter",
+      "theme": "reading",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/reading_junior.jpg",
+      "subject": "daughter",
+      "theme": "reading",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/reading_senior.jpg",
+      "subject": "daughter",
+      "theme": "reading",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/reading_adult.jpg",
+      "subject": "daughter",
+      "theme": "reading",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/market_early.jpg",
+      "subject": "family",
+      "theme": "market",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/market_elementary.jpg",
+      "subject": "family",
+      "theme": "market",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/market_junior.jpg",
+      "subject": "family",
+      "theme": "market",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/market_senior.jpg",
+      "subject": "family",
+      "theme": "market",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/market_adult.jpg",
+      "subject": "family",
+      "theme": "market",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/piano_junior.jpg",
+      "subject": "daughter",
+      "theme": "piano",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/piano_senior.jpg",
+      "subject": "daughter",
+      "theme": "piano",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/showcase_junior.jpg",
+      "subject": "daughter",
+      "theme": "showcase",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/showcase_senior.jpg",
+      "subject": "daughter",
+      "theme": "showcase",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/date_adult.jpg",
+      "subject": "daughter",
+      "theme": "date",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/homemeal_adult.jpg",
+      "subject": "family",
+      "theme": "homemeal",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/beach_early.jpg",
+      "subject": "family",
+      "theme": "beach",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/beach_elementary.jpg",
+      "subject": "family",
+      "theme": "beach",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/beach_junior.jpg",
+      "subject": "family",
+      "theme": "beach",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/beach_senior.jpg",
+      "subject": "family",
+      "theme": "beach",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/beach_adult.jpg",
+      "subject": "family",
+      "theme": "beach",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/mountain_early.jpg",
+      "subject": "family",
+      "theme": "mountain",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/mountain_elementary.jpg",
+      "subject": "family",
+      "theme": "mountain",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/mountain_junior.jpg",
+      "subject": "family",
+      "theme": "mountain",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/mountain_senior.jpg",
+      "subject": "family",
+      "theme": "mountain",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/mountain_adult.jpg",
+      "subject": "family",
+      "theme": "mountain",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_china_early.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_china_elementary.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_china_junior.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_china_senior.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_china_elementary_b.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "elementary",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_china_senior_b.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "senior",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_japan_early.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_japan_elementary.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_japan_junior.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_japan_senior.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_japan_elementary_b.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "elementary",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_japan_senior_b.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "senior",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_asia_early.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_asia_elementary.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_asia_junior.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_asia_senior.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_asia_elementary_b.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "elementary",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_asia_senior_b.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "senior",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_europe_early.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_europe_elementary.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_europe_junior.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_europe_senior.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_europe_elementary_b.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "elementary",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_europe_senior_b.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "senior",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_australia_early.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "early",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_australia_elementary.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "elementary",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_australia_junior.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "junior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_australia_senior.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "senior",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_australia_elementary_b.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "elementary",
+      "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_australia_senior_b.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "senior",
+      "alt": true
+    }
+  ]
+}
