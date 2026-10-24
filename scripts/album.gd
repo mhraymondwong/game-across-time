@@ -128,12 +128,9 @@ func _card(entry: Dictionary) -> PanelContainer:
 		inner_style.content_margin_top = 4
 		inner_style.content_margin_bottom = 4
 		frame.add_theme_stylebox_override("panel", inner_style)
-		var thumb := TextureRect.new()
-		thumb.custom_minimum_size = Vector2(140, 110)
-		thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		thumb.texture = tex
-		frame.add_child(thumb)
+		frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		frame.add_child(UiStyle.make_landscape_photo(tex, Vector2(148, 111)))
 		row.add_child(frame)
 
 	var col := VBoxContainer.new()
