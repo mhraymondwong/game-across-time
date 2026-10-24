@@ -213,12 +213,18 @@ static func make_shell(min_size: Vector2, portrait_size: Vector2 = Vector2(196, 
 	margin.mouse_filter = Control.MOUSE_FILTER_STOP
 	host.add_child(margin)
 
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(column)
+
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(row)
+	column.add_child(row)
 
 	var portrait_column := VBoxContainer.new()
 	portrait_column.name = "PortraitColumn"
@@ -323,23 +329,13 @@ static func make_shell(min_size: Vector2, portrait_size: Vector2 = Vector2(196, 
 	UiStyle.apply_label(kicker, 13, true)
 	titles.add_child(kicker)
 
-	var name_chip := PanelContainer.new()
-	name_chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var chip := UiStyle.button_style(Color("F8D0DC"), Color("E8A8BA"), 10)
-	chip.content_margin_left = 12
-	chip.content_margin_right = 12
-	chip.content_margin_top = 2
-	chip.content_margin_bottom = 2
-	chip.shadow_size = 0
-	name_chip.add_theme_stylebox_override("panel", chip)
-	name_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	titles.add_child(name_chip)
-
+	# Speaker name is diary text. Only the player's choices are buttons.
 	var nameplate := Label.new()
 	nameplate.name = "DialogueName"
 	nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiStyle.apply_label(nameplate, 22)
-	name_chip.add_child(nameplate)
+	nameplate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(nameplate, 26)
+	titles.add_child(nameplate)
 
 	var theme_frame := _make_stamp_frame()
 	header.add_child(theme_frame)
@@ -352,9 +348,17 @@ static func make_shell(min_size: Vector2, portrait_size: Vector2 = Vector2(196, 
 	body.add_theme_constant_override("separation", 8)
 	text_col.add_child(body)
 
+	var actions := VBoxContainer.new()
+	actions.name = "DialogueActions"
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.size_flags_vertical = Control.SIZE_SHRINK_END
+	actions.add_theme_constant_override("separation", 8)
+	column.add_child(actions)
+
 	return {
 		"panel": panel,
 		"body": body,
+		"actions": actions,
 		"portrait": portrait,
 		"portrait_host": portrait_host,
 		"portrait_column": portrait_column,

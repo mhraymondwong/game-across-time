@@ -76,6 +76,10 @@ func _show_choice() -> void:
 	_add_title("高中之後")
 	_add_body(Adulthood.fork_lead(GameState))
 	_body.add_child(_illustration_row("school", "work"))
+	_add_meta(Adulthood.fork_footnote())
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_child(spacer)
 	_body.add_child(_choice_button(
 		"ChooseUniversity",
 		Adulthood.COPY_UNIVERSITY_TITLE,
@@ -88,10 +92,6 @@ func _show_choice() -> void:
 		Adulthood.high_school_blurb(),
 		Adulthood.PATH_HIGH_SCHOOL
 	))
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_body.add_child(spacer)
-	_add_meta(Adulthood.fork_footnote())
 
 
 func _show_written(path: String) -> void:

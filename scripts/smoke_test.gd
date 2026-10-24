@@ -2035,8 +2035,14 @@ func _run() -> void:
 		var listener: TextureRect = shell["listener"]
 		var stamp: TextureRect = shell["theme"]
 		var listener_row: Control = shell["listener_row"]
+		var nameplate: Label = shell["nameplate"]
+		var actions: Node = shell["actions"]
 		if bust.texture == null or listener.texture == null or stamp.texture == null or not listener_row.visible:
 			printerr("[smoke] FAIL dialogue shell portraits")
+			dialogue_ok = false
+		elif nameplate.get_parent() is PanelContainer or not actions is VBoxContainer or actions.get_parent() != shell["panel"].find_child("DiaryHost", true, false).get_child(1).get_child(0):
+			# Name is a label in the story column. Choices live in DialogueActions, the last row of the shell.
+			printerr("[smoke] FAIL dialogue name looks like a button or actions are not at the bottom")
 			dialogue_ok = false
 		else:
 			print("[smoke] dialogue chrome OK")

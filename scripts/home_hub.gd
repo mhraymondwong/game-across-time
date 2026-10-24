@@ -62,6 +62,7 @@ var _mom_shell: Dictionary = {}
 var _travel_hint: Label
 var _confide_popup: PanelContainer
 var _confide_box: VBoxContainer
+var _confide_actions: VBoxContainer
 var _confide_shell: Dictionary = {}
 var _confide_offer: Dictionary = {}
 var _growth_lbl: Label
@@ -1487,9 +1488,11 @@ func _on_mom_help() -> void:
 
 func _make_mom_popup() -> PanelContainer:
 	# Bust stays in proportion (source is a tall cutout, not a square crop).
-	_mom_shell = DialogueChrome.make_shell(Vector2(860, 560), Vector2(210, 360))
+	# Tall enough for the bust, the listener, and a full-width button row inside the card.
+	_mom_shell = DialogueChrome.make_shell(Vector2(860, 640), Vector2(200, 300))
 	var panel: PanelContainer = _mom_shell["panel"]
 	var col: VBoxContainer = _mom_shell["body"]
+	var actions: VBoxContainer = _mom_shell["actions"]
 	_mom_portrait = _mom_shell["portrait"]
 
 	_mom_line = Label.new()
@@ -1503,29 +1506,30 @@ func _make_mom_popup() -> PanelContainer:
 	UiStyle.apply_label(_mom_help_lbl, 14, true)
 	col.add_child(_mom_help_lbl)
 
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	col.add_child(actions)
+	var action_row := HBoxContainer.new()
+	action_row.add_theme_constant_override("separation", 8)
+	actions.add_child(action_row)
 
 	var again := Button.new()
 	again.text = "再聽一句"
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(again, false)
 	again.pressed.connect(_on_mom_next_line)
-	actions.add_child(again)
+	action_row.add_child(again)
 
 	_mom_help_btn = Button.new()
 	_mom_help_btn.text = "媽媽的小幫忙"
 	_mom_help_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(_mom_help_btn, true)
 	_mom_help_btn.pressed.connect(_on_mom_help)
-	actions.add_child(_mom_help_btn)
+	action_row.add_child(_mom_help_btn)
 
 	var close := Button.new()
 	close.text = "好的 ♡"
+	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(close, false)
 	close.pressed.connect(_hide_popups)
-	col.add_child(close)
+	actions.add_child(close)
 	return panel
 
 
@@ -1732,11 +1736,12 @@ func _open_confide(offer: Dictionary) -> void:
 
 
 func _clear_confide_box() -> void:
-	if _confide_box == null:
-		return
-	for node in _confide_box.get_children():
-		_confide_box.remove_child(node)
-		node.free()
+	for box in [_confide_box, _confide_actions]:
+		if box == null:
+			continue
+		for node in box.get_children():
+			box.remove_child(node)
+			node.free()
 
 
 func _confide_label(text: String, size: int, muted: bool, min_h: int, center: bool) -> Label:
@@ -1771,7 +1776,7 @@ func _show_confide_offer() -> void:
 		UiStyle.apply_button(btn, false)
 		var choice_i := i
 		btn.pressed.connect(func() -> void: _on_confide_choice(choice_i))
-		_confide_box.add_child(btn)
+		_confide_actions.add_child(btn)
 
 
 func _on_confide_choice(index: int) -> void:
@@ -1796,7 +1801,7 @@ func _show_confide_result(res: Dictionary) -> void:
 	ok_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(ok_btn, true)
 	ok_btn.pressed.connect(_close_confide)
-	_confide_box.add_child(ok_btn)
+	_confide_actions.add_child(ok_btn)
 
 
 func _close_confide() -> void:
@@ -1807,9 +1812,10 @@ func _close_confide() -> void:
 
 
 func _make_confide_popup() -> PanelContainer:
-	_confide_shell = DialogueChrome.make_shell(Vector2(860, 540), Vector2(188, 300))
+	_confide_shell = DialogueChrome.make_shell(Vector2(860, 640), Vector2(168, 250))
 	var panel: PanelContainer = _confide_shell["panel"]
 	_confide_box = _confide_shell["body"]
+	_confide_actions = _confide_shell["actions"]
 	return panel
 
 
@@ -1866,6 +1872,7 @@ func _maybe_adult_intro() -> void:
 
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 6)
 	intro_row.add_child(v)
 
@@ -1889,6 +1896,10 @@ func _maybe_adult_intro() -> void:
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		UiStyle.apply_label(lbl, 14)
 		v.add_child(lbl)
+
+	var intro_spacer := Control.new()
+	intro_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(intro_spacer)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
