@@ -58,9 +58,12 @@ var _mom_line: Label
 var _mom_help_lbl: Label
 var _mom_help_btn: Button
 var _mom_portrait: TextureRect
+var _mom_shell: Dictionary = {}
 var _travel_hint: Label
 var _confide_popup: PanelContainer
 var _confide_box: VBoxContainer
+var _confide_actions: VBoxContainer
+var _confide_shell: Dictionary = {}
 var _confide_offer: Dictionary = {}
 var _growth_lbl: Label
 var _growth_btn: Button
@@ -1216,14 +1219,19 @@ func _rebuild_npc_list() -> void:
 		var value := TownNpcs.value_of(GameState, id)
 		var card := PanelContainer.new()
 		var style := UiStyle.panel_style(Color("FFF0F6"), Color("F5C0D0"), 14)
-		style.content_margin_left = 12
+		style.content_margin_left = 10
 		style.content_margin_right = 12
 		style.content_margin_top = 8
 		style.content_margin_bottom = 8
 		card.add_theme_stylebox_override("panel", style)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		card.add_child(row)
+		row.add_child(_npc_thumb(DialogueChrome.place_art(str(d.get("place", ""))), false))
 		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_theme_constant_override("separation", 2)
-		card.add_child(col)
+		row.add_child(col)
 
 		var head := Label.new()
 		head.text = "%s　·　%s　·　%s" % [
@@ -1427,12 +1435,9 @@ func _on_mom_pressed() -> void:
 		return
 	_hide_popups()
 	_popup_layer.get_node("Dim").visible = true
-	if _mom_portrait != null:
-		var bust_path := AgeLooks.mom_portrait(GameState.year)
-		if str(_mom_portrait.get_meta("look_path", "")) != bust_path:
-			_mom_portrait.texture = _load_tex(bust_path)
-			_mom_portrait.set_meta("look_path", bust_path)
-	_mom_line.text = Mom.advance_dialogue(GameState)
+	var line := Mom.advance_dialogue(GameState)
+	_mom_line.text = line
+	_paint_mom_dialogue(line)
 	_refresh_mom_help_label()
 	_mom_popup.visible = true
 
@@ -1451,7 +1456,20 @@ func _refresh_mom_help_label() -> void:
 
 
 func _on_mom_next_line() -> void:
-	_mom_line.text = Mom.advance_dialogue(GameState)
+	var line := Mom.advance_dialogue(GameState)
+	_mom_line.text = line
+	_paint_mom_dialogue(line)
+
+
+func _paint_mom_dialogue(line: String) -> void:
+	if _mom_shell.is_empty():
+		return
+	DialogueChrome.apply_speaker(_mom_shell, "mom", GameState.year, GameState.season)
+	DialogueChrome.apply_listener(
+		_mom_shell, "daughter", GameState.year, GameState.season, GameState.daughter_display_name()
+	)
+	DialogueChrome.apply_heading(_mom_shell, "家裡的對話", Mom.NAME)
+	DialogueChrome.apply_theme(_mom_shell, DialogueChrome.theme_for_line(line), GameState.year)
 
 
 func _on_mom_help() -> void:
@@ -1469,49 +1487,13 @@ func _on_mom_help() -> void:
 
 
 func _make_mom_popup() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(620, 500)
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_top = 0.5
-	panel.anchor_bottom = 0.5
-	panel.offset_left = -310
-	panel.offset_right = 310
-	panel.offset_top = -250
-	panel.offset_bottom = 250
-	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 8)
-	margin.add_theme_constant_override("margin_right", 8)
-	margin.add_theme_constant_override("margin_top", 6)
-	margin.add_theme_constant_override("margin_bottom", 6)
-	panel.add_child(margin)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	margin.add_child(row)
-
-	_mom_portrait = TextureRect.new()
-	_mom_portrait.name = "MomPortrait"
-	# Bust cutout is 324×625. Match that ratio so the figure is not square-cropped.
-	_mom_portrait.custom_minimum_size = Vector2(208, 400)
-	_mom_portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_mom_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_mom_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_mom_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_mom_portrait)
-
-	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 8)
-	row.add_child(col)
-
-	var title := Label.new()
-	title.text = Mom.NAME
-	UiStyle.apply_label(title, 24)
-	col.add_child(title)
+	# Bust stays in proportion (source is a tall cutout, not a square crop).
+	# Tall enough for the bust, the listener, and a full-width button row inside the card.
+	_mom_shell = DialogueChrome.make_shell(Vector2(860, 640), Vector2(200, 300))
+	var panel: PanelContainer = _mom_shell["panel"]
+	var col: VBoxContainer = _mom_shell["body"]
+	var actions: VBoxContainer = _mom_shell["actions"]
+	_mom_portrait = _mom_shell["portrait"]
 
 	_mom_line = Label.new()
 	_mom_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1524,29 +1506,30 @@ func _make_mom_popup() -> PanelContainer:
 	UiStyle.apply_label(_mom_help_lbl, 14, true)
 	col.add_child(_mom_help_lbl)
 
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	col.add_child(actions)
+	var action_row := HBoxContainer.new()
+	action_row.add_theme_constant_override("separation", 8)
+	actions.add_child(action_row)
 
 	var again := Button.new()
 	again.text = "再聽一句"
 	again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(again, false)
 	again.pressed.connect(_on_mom_next_line)
-	actions.add_child(again)
+	action_row.add_child(again)
 
 	_mom_help_btn = Button.new()
 	_mom_help_btn.text = "媽媽的小幫忙"
 	_mom_help_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(_mom_help_btn, true)
 	_mom_help_btn.pressed.connect(_on_mom_help)
-	actions.add_child(_mom_help_btn)
+	action_row.add_child(_mom_help_btn)
 
 	var close := Button.new()
 	close.text = "好的 ♡"
+	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(close, false)
 	close.pressed.connect(_hide_popups)
-	col.add_child(close)
+	actions.add_child(close)
 	return panel
 
 
@@ -1558,9 +1541,14 @@ func _mom_family_card() -> PanelContainer:
 	style.content_margin_top = 8
 	style.content_margin_bottom = 8
 	card.add_theme_stylebox_override("panel", style)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	card.add_child(row)
+	row.add_child(_npc_thumb(AgeLooks.mom_portrait(GameState.year), true))
 	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 2)
-	card.add_child(col)
+	row.add_child(col)
 
 	var head := Label.new()
 	head.text = "%s　·　家人　·　家" % Mom.NAME
@@ -1748,11 +1736,12 @@ func _open_confide(offer: Dictionary) -> void:
 
 
 func _clear_confide_box() -> void:
-	if _confide_box == null:
-		return
-	for node in _confide_box.get_children():
-		_confide_box.remove_child(node)
-		node.free()
+	for box in [_confide_box, _confide_actions]:
+		if box == null:
+			continue
+		for node in box.get_children():
+			box.remove_child(node)
+			node.free()
 
 
 func _confide_label(text: String, size: int, muted: bool, min_h: int, center: bool) -> Label:
@@ -1762,15 +1751,19 @@ func _confide_label(text: String, size: int, muted: bool, min_h: int, center: bo
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if center else HORIZONTAL_ALIGNMENT_LEFT
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl.custom_minimum_size = Vector2(440, min_h)
+	lbl.custom_minimum_size = Vector2(0, min_h)
 	UiStyle.apply_label(lbl, size, muted)
 	return lbl
 
 
 func _show_confide_offer() -> void:
 	_clear_confide_box()
-	_confide_box.add_child(_confide_label(str(_confide_offer.get("kicker", "傾訴心事")), 14, true, 24, true))
-	_confide_box.add_child(_confide_label("%s想說說話" % GameState.daughter_display_name(), 22, false, 36, true))
+	_paint_confide_frame(str(_confide_offer.get("id", "")))
+	DialogueChrome.apply_heading(
+		_confide_shell,
+		str(_confide_offer.get("kicker", "傾訴心事")),
+		"%s想說說話" % GameState.daughter_display_name()
+	)
 	_confide_box.add_child(_confide_label(str(_confide_offer.get("body", "")), 16, false, 72, false))
 
 	var opts: Array = _confide_offer.get("options", [])
@@ -1778,11 +1771,12 @@ func _show_confide_offer() -> void:
 		var opt: Dictionary = opts[i]
 		var btn := Button.new()
 		btn.text = str(opt.get("label", ""))
-		btn.custom_minimum_size = Vector2(440, 42)
+		btn.custom_minimum_size = Vector2(0, 48)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UiStyle.apply_button(btn, false)
 		var choice_i := i
 		btn.pressed.connect(func() -> void: _on_confide_choice(choice_i))
-		_confide_box.add_child(btn)
+		_confide_actions.add_child(btn)
 
 
 func _on_confide_choice(index: int) -> void:
@@ -1793,6 +1787,8 @@ func _on_confide_choice(index: int) -> void:
 
 func _show_confide_result(res: Dictionary) -> void:
 	_clear_confide_box()
+	_paint_confide_frame(str(_confide_offer.get("id", "")))
+	DialogueChrome.apply_heading(_confide_shell, "她接著說", GameState.daughter_display_name())
 	_confide_box.add_child(_confide_label(str(res.get("reply", "")), 16, false, 72, false))
 	var delta_line := Mom.format_deltas(res.get("deltas", {}))
 	if delta_line != "":
@@ -1801,10 +1797,11 @@ func _show_confide_result(res: Dictionary) -> void:
 		_confide_box.add_child(_confide_label("家裡更暖了一點。", 14, true, 28, false))
 	var ok_btn := Button.new()
 	ok_btn.text = "好的"
-	ok_btn.custom_minimum_size = Vector2(440, 44)
+	ok_btn.custom_minimum_size = Vector2(0, 48)
+	ok_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UiStyle.apply_button(ok_btn, true)
 	ok_btn.pressed.connect(_close_confide)
-	_confide_box.add_child(ok_btn)
+	_confide_actions.add_child(ok_btn)
 
 
 func _close_confide() -> void:
@@ -1815,28 +1812,30 @@ func _close_confide() -> void:
 
 
 func _make_confide_popup() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520, 360)
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_top = 0.5
-	panel.anchor_bottom = 0.5
-	panel.offset_left = -270
-	panel.offset_right = 270
-	panel.offset_top = -230
-	panel.offset_bottom = 230
-	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
-	panel.add_child(margin)
-	_confide_box = VBoxContainer.new()
-	_confide_box.add_theme_constant_override("separation", 10)
-	_confide_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(_confide_box)
+	_confide_shell = DialogueChrome.make_shell(Vector2(860, 640), Vector2(168, 250))
+	var panel: PanelContainer = _confide_shell["panel"]
+	_confide_box = _confide_shell["body"]
+	_confide_actions = _confide_shell["actions"]
 	return panel
+
+
+func _paint_confide_frame(line_id: String) -> void:
+	if _confide_shell.is_empty():
+		return
+	DialogueChrome.apply_speaker(_confide_shell, "daughter", GameState.year, GameState.season)
+	DialogueChrome.apply_listener(_confide_shell, "dad", GameState.year, GameState.season, "爸爸")
+	DialogueChrome.apply_theme(_confide_shell, DialogueChrome.theme_for_confide(line_id), GameState.year)
+
+
+func _npc_thumb(path: String, cutout: bool) -> TextureRect:
+	var thumb := TextureRect.new()
+	thumb.custom_minimum_size = Vector2(72, 84 if cutout else 56)
+	thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED if cutout else TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	thumb.texture = DialogueChrome.load_texture(path)
+	thumb.visible = thumb.texture != null
+	return thumb
 
 
 func _adult_intro_open() -> bool:
@@ -1855,16 +1854,27 @@ func _maybe_adult_intro() -> void:
 	add_child(_adult_layer)
 
 	var card := PanelContainer.new()
-	card.offset_left = 300
+	card.offset_left = 280
 	card.offset_top = 64
-	card.offset_right = 980
-	card.offset_bottom = 460
-	card.add_theme_stylebox_override("panel", UiStyle.panel_style(Color(1, 0.96, 0.97, 0.96), Color("F090A8"), 18))
+	card.offset_right = 1000
+	card.offset_bottom = 520
+	card.add_theme_stylebox_override("panel", DialogueChrome.paper_style())
 	_adult_layer.add_child(card)
 
+	var intro_row := HBoxContainer.new()
+	intro_row.add_theme_constant_override("separation", 12)
+	card.add_child(intro_row)
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 8)
+	side.add_child(DialogueChrome.make_bust("daughter", GameState.year, GameState.season, Vector2(110, 180)))
+	side.add_child(DialogueChrome.make_stamp("home", GameState.year))
+	intro_row.add_child(side)
+
 	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 6)
-	card.add_child(v)
+	intro_row.add_child(v)
 
 	var title := Label.new()
 	title.text = "成年的手帳"
@@ -1887,6 +1897,10 @@ func _maybe_adult_intro() -> void:
 		UiStyle.apply_label(lbl, 14)
 		v.add_child(lbl)
 
+	var intro_spacer := Control.new()
+	intro_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(intro_spacer)
+
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	v.add_child(row)
@@ -1902,6 +1916,7 @@ func _maybe_adult_intro() -> void:
 	UiStyle.apply_button(browse, false)
 	browse.pressed.connect(_browse_adult_jobs)
 	row.add_child(browse)
+	DialogueChrome.dress_panel(card)
 
 
 func _close_adult_intro() -> void:

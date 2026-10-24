@@ -20,6 +20,7 @@ Godot 4.7.2 的 Web 匯出寫進 `build/web/`。GitHub 不接受單檔 **100 MiB
 | id | 目錄 | 輸出 |
 |----|------|------|
 | `family` | `res://assets/family/` | `build/web/packs/family.pck` |
+| `dialogue` | `res://assets/dialogue/` | `build/web/packs/dialogue.pck` |
 
 家人年齡段圖是目前最重的一組。遠行靜圖之後可以照下面的步驟另開一包，不必改載入器。
 
