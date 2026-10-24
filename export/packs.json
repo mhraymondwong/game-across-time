@@ -6,6 +6,12 @@
       "file": "packs/family.pck",
       "include": ["res://assets/family/"],
       "probe": "res://assets/family/daughter_early.png"
+    },
+    {
+      "id": "dialogue",
+      "file": "packs/dialogue.pck",
+      "include": ["res://assets/dialogue/"],
+      "probe": "res://assets/dialogue/paper_tile.png"
     }
   ]
 }

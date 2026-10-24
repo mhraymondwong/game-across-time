@@ -280,7 +280,7 @@
 
 - id：`mom`（媽媽）。**不是** `TownNpcs` 的小鎮名單，不進好感心形，關係固定是暖的。
 - `scripts/mom.gd`
-- 立繪：主畫面立牌用 `assets/family/mom_fullbody_cutout.png`（透明全身，介面裡縮小，沒有相框）；對話彈窗用較大的 `assets/family/mom_bust_cutout.png`（半身，維持比例、不裁成方圖）。舊的 `assets/family/mom_portrait.jpg` 先留在庫裡，主畫面與對話不再用它。
+- 立繪：主畫面立牌用 `assets/family/mom_fullbody_cutout.png`（透明全身，介面裡縮小，沒有相框）；對話彈窗用年齡段半身 `AgeLooks.mom_portrait`（維持比例、不裁成方圖），旁邊是女兒的小剪影和一句話對上的小圖。舊的 `assets/family/mom_portrait.jpg` 先留在庫裡，主畫面與對話不再用它。
 - 主畫面 `home_hub`：每個季節**第一次**進入時擲一次，機率 **30%**（落在 25–35%）。擲中才在地圖左側放一張站立剪影立牌（比女兒小很多，沒有粉紅方框或拍立得白邊）；點一下說一句暖的話，可「再聽一句」。同一季再進來不會重擲，所以她不是一直站在畫面上。第一季教學卡開著時，立牌改站在卡片右側，腳不壓進手帳抽屜。
 - 小幫忙：她在家的那一季可領一次。依年＋季輪流：熱茶（心情）、一點私房錢（家計）、陽台伸展（體力／道德），或提醒排「公園散步」／「在家好好休息」（心情微升）。
 - 人際面板最上方有一張家人卡，說明她不計分。要跟她說話，仍得等立牌出現。
@@ -502,7 +502,7 @@
 
 女兒、媽媽、爸爸的五段肖像，以及相簿的五段全家福，已經放進 `assets/family/`。遠行 `{dest}_{band}` 靜圖仍缺，各年齡段繼續退回該目的地那張。
 
-主畫面女兒已改問 `AgeLooks.daughter_portrait`，媽媽立牌與對話改問 `mom_pin`／`mom_portrait`，所以會用到上面那些五段圖。缺檔才退回季立繪與原本的媽媽剪影。爸爸的圖已在庫裡，畫面上還沒有他的位子。這不是把六階季立繪收成五張；季立繪仍是女兒的退路。
+主畫面女兒已改問 `AgeLooks.daughter_portrait`，媽媽立牌與對話改問 `mom_pin`／`mom_portrait`，所以會用到上面那些五段圖。缺檔才退回季立繪與原本的媽媽剪影。爸爸的五段圖用在女兒傾訴時、半身旁邊的「在聽」小像。這不是把六階季立繪收成五張；季立繪仍是女兒的退路。
 
 ### 相簿放大
 
@@ -548,7 +548,7 @@
 
 ### 畫面
 
-`scenes/education_fork.tscn`。相簿底、淡粉遮罩、圓角日記卡，跟遠行頁和取名卡同一套。按鈕是「大學進路」與「高中畢業直接就業」。大學那條會提到夜間進修、證照、作品集還留在日記裡；高中就業那條是班表早一點開始。選完有一句「寫下來了」，再翻開成年手帳。接著才是原本的「就這份工作」。
+`scenes/education_fork.tscn`。相簿底、淡粉遮罩、圓角日記卡，跟遠行頁和取名卡同一套。卡上有她這個年齡段的半身，以及學校、工作兩張小圖（寫完之後只留她選的那張）。按鈕仍是「大學進路」與「高中畢業直接就業」，字句不變。大學那條會提到夜間進修、證照、作品集還留在日記裡；高中就業那條是班表早一點開始。選完有一句「寫下來了」，再翻開成年手帳。接著才是原本的「就這份工作」。
 
 第 12 年冬的回顧按鈕仍是「翻到新的一年」。這一頁接在那個按鈕後面。第 18 年冬仍直接去結局，不再問。
 
@@ -562,7 +562,7 @@
 
 GitHub 拒絕單檔 **100 MiB** 以上的推送。主包 `build/web/index.pck` 再加大就過不去。不要靠把貼圖改成 Lossy 來硬壓；匯入維持無損。重的目錄改走額外的 `.pck`，開場在標題畫面之前載入。
 
-清單是 `export/packs.json`。現在只有 `family`：`assets/family/` → `build/web/packs/family.pck`。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。
+清單是 `export/packs.json`。現在有兩包：`family`（`assets/family/` → `build/web/packs/family.pck`）和 `dialogue`（`assets/dialogue/` 的紙紋、角花、心事與工作小圖 → `build/web/packs/dialogue.pck`）。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。對話框缺這包時，半身和地點圖仍在，角花改用畫出來的小枝。
 
 之後再加一包（例如遠行靜圖）只要：
 
@@ -571,4 +571,15 @@ GitHub 拒絕單檔 **100 MiB** 以上的推送。主包 `build/web/index.pck` �
 3. 跑 `./scripts/export_web.sh`，提交 `build/web`（含新的 `.pck` 與 `packs.json`）。
 
 不用改載入程式。匯出腳本會擋下任何一個 ≥ 100 MiB 的檔。步驟與檢查見 `export/README.md`。
+
+## 29. 對話框（日記頁，而不是空方塊）
+
+媽媽對話、女兒傾訴、升學那一頁，以前幾乎只有圓角方塊、句子和按鈕。現在共用 `scripts/dialogue_chrome.gd`：
+
+- 說話的人用年齡段半身（媽媽 `mom_portrait`、女兒 `daughter_portrait`）。傾訴時爸爸的小像在旁邊，表示他在聽；媽媽說話時，旁邊是女兒的小像。缺檔就藏起那一格，不另畫假人。
+- 字的後面是淡橫線的日記紙。四角有花枝（`assets/dialogue/`），這包沒載入時改畫小枝。
+- 句子旁邊有一張小圖。傾訴用台詞 id 對應學校、商店街、家、全家福、心事或工作。媽媽的句子用關鍵字（學校、巷口、湯麵這類）挑同一組圖。學校、家、商店街沿用地點插畫；全家福沿用 `AgeLooks.family_photo`。心事和工作是小張抽象圖，沒有寫實的情侶。
+- 按鈕仍是整列、至少約 48 像素高。存檔、選項、升學寫入的值都沒改。
+
+`assets/dialogue/` 走 `packs/dialogue.pck`，不進 `index.pck`。這次沒有重匯網頁版；要上 Pages 再跑 `./scripts/export_web.sh`。
 

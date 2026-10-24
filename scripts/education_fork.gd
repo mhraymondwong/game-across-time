@@ -36,7 +36,7 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF8FA"), Color("F5A8C0"), 22))
+	panel.add_theme_stylebox_override("panel", DialogueChrome.paper_style())
 	root.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -51,6 +51,7 @@ func _ready() -> void:
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_theme_constant_override("separation", 12)
 	margin.add_child(_body)
+	DialogueChrome.dress_panel(panel)
 
 	var path := Adulthood.education_path_of(GameState)
 	if Adulthood.needs_education_choice(GameState):
@@ -74,6 +75,7 @@ func _show_choice() -> void:
 	_add_kicker("手帳新的一頁")
 	_add_title("高中之後")
 	_add_body(Adulthood.fork_lead(GameState))
+	_body.add_child(_illustration_row("school", "work"))
 	_body.add_child(_choice_button(
 		"ChooseUniversity",
 		Adulthood.COPY_UNIVERSITY_TITLE,
@@ -97,6 +99,8 @@ func _show_written(path: String) -> void:
 	_add_kicker("寫進手帳")
 	_add_title("這一頁合上了")
 	_add_body(Adulthood.written_body(path))
+	var written_theme := "school" if path == Adulthood.PATH_UNIVERSITY else "work"
+	_body.add_child(_illustration_row(written_theme, ""))
 	_add_meta(Adulthood.fork_footnote())
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -139,6 +143,18 @@ func _choice_button(node_name: String, title: String, body: String, path: String
 	b.custom_minimum_size = Vector2(0, 108)
 	b.pressed.connect(func() -> void: _on_choose(path))
 	return b
+
+
+func _illustration_row(theme_a: String, theme_b: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "ForkArt"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	row.add_child(DialogueChrome.make_bust("daughter", GameState.year, GameState.season, Vector2(108, 168)))
+	row.add_child(DialogueChrome.make_stamp(theme_a, GameState.year))
+	if theme_b != "":
+		row.add_child(DialogueChrome.make_stamp(theme_b, GameState.year))
+	return row
 
 
 func _add_kicker(text: String) -> void:

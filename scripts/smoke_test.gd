@@ -1901,6 +1901,11 @@ func _run() -> void:
 			printerr("[smoke] FAIL fork button copy")
 			phase15_ok = false
 		else:
+			var fork_bust := fork.find_child("DialogueBust", true, false) as TextureRect
+			var fork_stamp := fork.find_child("DialogueStamp", true, false)
+			if fork_bust == null or fork_bust.texture == null or fork_stamp == null:
+				printerr("[smoke] FAIL fork dialogue art bust=%s stamp=%s" % [fork_bust, fork_stamp])
+				phase15_ok = false
 			choose_uni.pressed.emit()
 			if str(gs.education_path) != "university" or Adulthood.needs_education_choice(gs):
 				printerr("[smoke] FAIL fork click did not store university")
@@ -2001,7 +2006,43 @@ func _run() -> void:
 	var ev: Dictionary = gs.last_season_event
 	print("[smoke] last_season_event=%s" % str(ev.get("title", "(none)")))
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok
+	var dialogue_ok := true
+	if load("res://scripts/dialogue_chrome.gd") == null:
+		printerr("[smoke] FAIL dialogue chrome script")
+		dialogue_ok = false
+	elif DialogueChrome.theme_for_confide("child_worry_seat") != "school" or DialogueChrome.theme_for_confide("child_worry_candy") != "shop" or DialogueChrome.theme_for_confide("adult_worry_someone") != "romance" or DialogueChrome.theme_for_confide("adult_worry_late") != "work" or DialogueChrome.theme_for_confide("child_cling_hug") != "family":
+		printerr("[smoke] FAIL confide theme map")
+		dialogue_ok = false
+	elif DialogueChrome.theme_for_line("回來啦。今天在學校畫了一朵很大的花。") != "school" or DialogueChrome.theme_for_line("去巷口就好") != "park" or DialogueChrome.theme_for_line("今晚想吃湯麵嗎") != "home":
+		printerr("[smoke] FAIL line theme scan")
+		dialogue_ok = false
+	elif DialogueChrome.speaker_path("mom", 9, 0) != AgeLooks.mom_portrait(9) or DialogueChrome.speaker_path("dad", 8, 0) != AgeLooks.dad_portrait(8) or DialogueChrome.speaker_path("daughter", 16, 2) != AgeLooks.daughter_portrait(16, 2):
+		printerr("[smoke] FAIL dialogue speaker paths")
+		dialogue_ok = false
+	elif DialogueChrome.theme_art("family", 1) != AgeLooks.family_photo(1) or DialogueChrome.theme_art("school", 3) != "res://assets/places/place_school.jpg":
+		printerr("[smoke] FAIL dialogue theme art")
+		dialogue_ok = false
+	elif not hub_gate.contains("DialogueChrome") or not hub_gate.contains("AgeLooks.mom_pin"):
+		printerr("[smoke] FAIL hub dialogue chrome wiring")
+		dialogue_ok = false
+	else:
+		var shell := DialogueChrome.make_shell(Vector2(860, 540), Vector2(188, 300))
+		root.add_child(shell["panel"])
+		DialogueChrome.apply_speaker(shell, "daughter", 3, 0)
+		DialogueChrome.apply_listener(shell, "dad", 3, 0, "爸爸")
+		DialogueChrome.apply_theme(shell, "school", 3)
+		var bust: TextureRect = shell["portrait"]
+		var listener: TextureRect = shell["listener"]
+		var stamp: TextureRect = shell["theme"]
+		var listener_row: Control = shell["listener_row"]
+		if bust.texture == null or listener.texture == null or stamp.texture == null or not listener_row.visible:
+			printerr("[smoke] FAIL dialogue shell portraits")
+			dialogue_ok = false
+		else:
+			print("[smoke] dialogue chrome OK")
+		shell["panel"].free()
+
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok and dialogue_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false
