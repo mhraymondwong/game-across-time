@@ -112,6 +112,103 @@ static func make_bg(parent: Control, color: Color = GameConfig.COL_BG) -> ColorR
 	return bg
 
 
+## Family and travel stills are 4:3. Event stills are about 16:9.
+## Weather stamps are tall canvases; cover them into the 4:3 photo frame.
+const ALBUM_PHOTO_RATIO := 4.0 / 3.0
+const LIGHTBOX_PHOTO_MAX := Vector2(720, 380)
+
+
+static func lightbox_photo_ratio(tex: Texture2D) -> float:
+	if tex == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+		return ALBUM_PHOTO_RATIO
+	var src := float(tex.get_width()) / float(tex.get_height())
+	if src >= 1.2:
+		return src
+	return ALBUM_PHOTO_RATIO
+
+
+static func lightbox_photo_size(tex: Texture2D, max_size: Vector2) -> Vector2:
+	var ratio := lightbox_photo_ratio(tex)
+	var w := max_size.x
+	var h := w / ratio
+	if max_size.y > 0.0 and h > max_size.y:
+		h = max_size.y
+		w = h * ratio
+	return Vector2(w, h)
+
+
+## Drop the plain paper around a tall stamp so cover-crop fills the photo frame.
+static func _trim_plain_margins(tex: Texture2D) -> Texture2D:
+	if tex == null:
+		return tex
+	var img := tex.get_image()
+	if img == null:
+		return tex
+	img = img.duplicate()
+	if img.is_compressed():
+		img.decompress()
+	var w := img.get_width()
+	var h := img.get_height()
+	var min_x := w
+	var min_y := h
+	var max_x := -1
+	var max_y := -1
+	for y in range(h):
+		for x in range(w):
+			var c := img.get_pixel(x, y)
+			if c.a < 0.05:
+				continue
+			if c.r >= 0.965 and c.g >= 0.965 and c.b >= 0.945:
+				continue
+			if x < min_x:
+				min_x = x
+			if y < min_y:
+				min_y = y
+			if x > max_x:
+				max_x = x
+			if y > max_y:
+				max_y = y
+	if max_x < min_x:
+		return tex
+	min_x = maxi(0, min_x - 2)
+	min_y = maxi(0, min_y - 2)
+	max_x = mini(w - 1, max_x + 2)
+	max_y = mini(h - 1, max_y + 2)
+	var cw := max_x - min_x + 1
+	var ch := max_y - min_y + 1
+	if cw >= w - 1 and ch >= h - 1:
+		return tex
+	return ImageTexture.create_from_image(img.get_region(Rect2i(min_x, min_y, cw, ch)))
+
+
+## Landscape slot. Portrait stamps are covered into 4:3; wide photos keep their ratio.
+static func make_landscape_photo(tex: Texture2D, max_size: Vector2) -> AspectRatioContainer:
+	var shown := tex
+	if tex != null and tex.get_height() > 0 and float(tex.get_width()) / float(tex.get_height()) < 1.2:
+		shown = _trim_plain_margins(tex)
+	var size := lightbox_photo_size(shown, max_size)
+	var slot := AspectRatioContainer.new()
+	slot.ratio = size.x / maxf(size.y, 1.0)
+	slot.stretch_mode = AspectRatioContainer.STRETCH_FIT
+	slot.alignment_horizontal = AspectRatioContainer.ALIGNMENT_CENTER
+	slot.alignment_vertical = AspectRatioContainer.ALIGNMENT_CENTER
+	slot.custom_minimum_size = size
+	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var photo := TextureRect.new()
+	photo.name = "LandscapePhoto"
+	photo.texture = shown
+	photo.custom_minimum_size = size
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	photo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	photo.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(photo)
+	return slot
+
+
 ## Full-screen pink diary lightbox. Tap outside,「闔上」, or Esc (via lightbox_consume_cancel).
 static func show_diary_lightbox(parent: Node, tex: Texture2D, title: String, body: String) -> void:
 	dismiss_diary_lightbox(parent)
@@ -148,20 +245,16 @@ static func show_diary_lightbox(parent: Node, tex: Texture2D, title: String, bod
 
 	if tex != null:
 		var frame := PanelContainer.new()
+		frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.clip_contents = true
 		var inner := panel_style(Color("FFFAFC"), Color("F0C0D0"), 8)
 		inner.set_border_width_all(8)
 		inner.border_width_bottom = 22
 		inner.set_content_margin_all(6)
 		inner.shadow_size = 0
 		frame.add_theme_stylebox_override("panel", inner)
-		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var photo := TextureRect.new()
-		photo.custom_minimum_size = Vector2(720, 380)
-		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		photo.texture = tex
-		frame.add_child(photo)
+		frame.add_child(make_landscape_photo(tex, LIGHTBOX_PHOTO_MAX))
 		v.add_child(frame)
 
 	var cap := Label.new()

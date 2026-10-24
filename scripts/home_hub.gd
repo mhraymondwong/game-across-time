@@ -634,15 +634,15 @@ func _toggle_drawer() -> void:
 
 func _make_popup_shell(title_text: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(720, 560)
+	panel.custom_minimum_size = Vector2(720, 680)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
 	panel.offset_left = -370
 	panel.offset_right = 370
-	panel.offset_top = -320
-	panel.offset_bottom = 320
+	panel.offset_top = -340
+	panel.offset_bottom = 340
 	var shell := UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22)
 	shell.content_margin_left = 14
 	shell.content_margin_right = 14
@@ -664,12 +664,15 @@ func _make_popup_shell(title_text: String) -> PanelContainer:
 	_popup_banner_frame.visible = false
 	v.add_child(_popup_banner_frame)
 
+	_popup_banner_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_popup_banner = TextureRect.new()
-	_popup_banner.custom_minimum_size = Vector2(0, 180)
+	# 16:9, same shape as the place stills, so the header is a photo rather than a thin band.
+	_popup_banner.custom_minimum_size = Vector2(554, 312)
 	_popup_banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_popup_banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_popup_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_popup_banner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_popup_banner.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_popup_banner.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_popup_banner_frame.add_child(_popup_banner)
 	_apply_round_corners(_popup_banner, 18.0)
 
@@ -800,7 +803,7 @@ func _apply_round_corners(tex: TextureRect, radius: float) -> void:
 	if _round_shader == null:
 		_round_shader = Shader.new()
 		_round_shader.code = """shader_type canvas_item;
-uniform vec2 rect_size = vec2(680.0, 180.0);
+uniform vec2 rect_size = vec2(554.0, 312.0);
 uniform float radius = 18.0;
 void fragment() {
 	vec4 tex = texture(TEXTURE, UV);
@@ -816,7 +819,7 @@ void fragment() {
 """
 	var mat := ShaderMaterial.new()
 	mat.shader = _round_shader
-	mat.set_shader_parameter("rect_size", Vector2(680, 180))
+	mat.set_shader_parameter("rect_size", Vector2(554, 312))
 	mat.set_shader_parameter("radius", radius)
 	tex.material = mat
 	if not tex.resized.is_connected(_sync_banner_radius):
