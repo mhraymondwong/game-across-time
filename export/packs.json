@@ -12,6 +12,12 @@
       "file": "packs/dialogue.pck",
       "include": ["res://assets/dialogue/"],
       "probe": "res://assets/dialogue/paper_tile.png"
+    },
+    {
+      "id": "album",
+      "file": "packs/album.pck",
+      "include": ["res://assets/album/"],
+      "probe": "res://assets/album/arts_early.jpg"
     }
   ]
 }

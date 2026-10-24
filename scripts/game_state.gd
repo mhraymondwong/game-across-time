@@ -633,7 +633,7 @@ func from_dict(d: Dictionary) -> void:
 	last_year_review = lyr.duplicate(true) if typeof(lyr) == TYPE_DICTIONARY else {}
 	pending_ending_after_review = bool(d.get("pending_ending_after_review", false))
 	_load_npc_affinity(d.get("npc_affinity", null))
-	album = _parse_dict_array(d.get("album", []))
+	album = AlbumPhotos.sanitize(_parse_dict_array(d.get("album", [])))
 	album_browse = []
 	album_return_scene = ""
 	save_name = str(d.get("save_name", ""))
@@ -659,45 +659,52 @@ func from_dict(d: Dictionary) -> void:
 
 func append_album_entry(entry: Dictionary) -> void:
 	var eid := str(entry.get("id", ""))
-	if eid == "":
+	var thumb := str(entry.get("thumb_path", ""))
+	if eid == "" or AlbumPhotos.is_forbidden(thumb) or AlbumPhotos.subject_of(thumb) == "":
 		return
 	for existing in album:
-		if typeof(existing) == TYPE_DICTIONARY and str(existing.get("id", "")) == eid:
+		if typeof(existing) != TYPE_DICTIONARY:
+			continue
+		if str(existing.get("id", "")) == eid or str(existing.get("thumb_path", "")) == thumb:
 			return
 	album.append({
 		"id": eid,
 		"year": int(entry.get("year", year)),
 		"season": int(entry.get("season", season)),
 		"title": str(entry.get("title", "")),
-		"thumb_path": str(entry.get("thumb_path", "")),
+		"thumb_path": thumb,
 		"body": str(entry.get("body", "")),
 	})
 
 
 func record_season_memories() -> void:
-	## Beach / mountain stills, plus notable activity vignettes from this season.
+	## Notable months and the beach / mountain trips. The picture is the daughter,
+	## or the daughter with her parents — never the season stamp.
+	var used := AlbumPhotos.used_paths(album)
 	var ev := last_season_event
 	if str(ev.get("media_still", "")) != "":
-		append_album_entry({
-			"id": "evt_%s_y%d" % [str(ev.get("id", "event")), year],
-			"year": year,
-			"season": season,
-			"title": str(ev.get("title", "")),
-			"thumb_path": GameConfig.event_still_path(str(ev.get("media_still", ""))),
-			"body": str(ev.get("body", "")),
-		})
+		var event_theme := AlbumPhotos.theme_for_event(str(ev.get("id", "")))
+		var event_thumb := AlbumPhotos.claim(used, event_theme, year)
+		if event_thumb != "":
+			append_album_entry({
+				"id": "evt_%s_y%d" % [str(ev.get("id", "event")), year],
+				"year": year,
+				"season": season,
+				"title": str(ev.get("title", "")),
+				"thumb_path": event_thumb,
+				"body": str(ev.get("body", "")),
+			})
+			used.append(event_thumb)
 	for item in last_vignettes:
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
 		var v: Dictionary = item
 		if not bool(v.get("notable", false)):
 			continue
-		var thumb := ""
-		var still_id := str(v.get("still", ""))
-		if still_id != "":
-			thumb = GameConfig.event_still_path(still_id)
+		var theme := AlbumPhotos.theme_for_activity(str(v.get("activity_id", "")))
+		var thumb := AlbumPhotos.claim(used, theme, year)
 		if thumb == "":
-			thumb = SeasonEvents.sticker_path(str(v.get("sticker", "")))
+			continue
 		append_album_entry({
 			"id": "vig_%s_y%d_s%d_m%d" % [
 				str(v.get("activity_id", "act")), year, season, int(v.get("month_index", 0))
@@ -708,6 +715,7 @@ func record_season_memories() -> void:
 			"thumb_path": thumb,
 			"body": str(v.get("body", "")),
 		})
+		used.append(thumb)
 
 
 func map_event_flag(place_id: String) -> String:

@@ -1,7 +1,7 @@
 class_name ActivityScenes
 extends RefCounted
 ## 活動小過場文案（依活動 id）。結算時由 GameState 抄進 last_vignettes。
-## 文字優先；sticker 用既有天氣貼圖，still 可選 assets/events 的 media id。
+## 文字優先。季節結算卡仍可用天氣貼紙；相簿照片不走貼紙，見 AlbumPhotos。
 
 const BY_ID := {
 	"study_tutoring": {

@@ -3,9 +3,9 @@ extends RefCounted
 ## 每兩年一次的遠行：第 2、4、6、8、10、12 年。
 ## 夏天進入主畫面時先問要不要出發；可留到冬天，或今年不去。
 ## 不取代每季三個活動格（「短途旅行」仍是普通休閒活動）。
-## 每個目的地用自己的全家福。相簿與短過場走 thumb_for（age_bands_family）。
-## TODO(age_bands_family): 幼年／國小／國中／高中／成年 的專屬圖還沒畫。
-## 檔名 assets/travel/{id}_{band}.jpg。缺檔時 thumb_for 退回下面這張。
+## 每個目的地用自己的全家福。相簿與選擇卡走 thumb_for（age_bands_family）。
+## 幼年／國小／國中／高中的相簿圖在 assets/album/travel_{id}_{band}.jpg。
+## 同一年齡段的第二次同地旅行用 _b。沒有空檔時才退回下面這張，而且不重複貼。
 
 const TRAVEL_YEARS: Array[int] = [2, 4, 6, 8, 10, 12]
 const THUMB_CHINA := "res://assets/travel/travel_china_family.jpg"
@@ -112,8 +112,19 @@ static func get_dest(dest_id: String) -> Dictionary:
 
 
 ## Family still for this destination at this game year.
-## Band files are optional; the destination JPG is the fallback for every band.
-static func thumb_for(dest_id: String, year: int) -> String:
+## Album plates live in assets/album/travel_{dest}_{band}.jpg (age_bands_family).
+## `used` skips a file already pasted in the album. With no free plate, the
+## offer card falls back to the single destination JPG; depart will not paste
+## that fallback a second time.
+static func thumb_for(dest_id: String, year: int, used: Array = []) -> String:
+	var theme := AlbumPhotos.theme_for_travel(dest_id)
+	if not used.is_empty():
+		var free := AlbumPhotos.claim(used, theme, year)
+		if free != "":
+			return free
+	var primary := AlbumPhotos.primary_path(theme, year)
+	if primary != "":
+		return primary
 	var dest := get_dest(dest_id)
 	return AgeLooks.travel_thumb(dest_id, year, str(dest.get("thumb", "")))
 
@@ -207,15 +218,16 @@ static func depart(state, dest_id: String) -> Dictionary:
 	state.apply_map_event_delta(deltas)
 	var title := str(dest.get("vignette_title", dest.get("title", "遠行")))
 	var body := Mom._named(state, str(dest.get("vignette_body", "")))
-	var thumb := thumb_for(dest_id, y)
-	state.append_album_entry({
-		"id": "travel_%s_y%d" % [dest_id, y],
-		"year": y,
-		"season": season_now,
-		"title": title,
-		"thumb_path": thumb,
-		"body": body,
-	})
+	var thumb := AlbumPhotos.claim(AlbumPhotos.used_paths(state.album), AlbumPhotos.theme_for_travel(dest_id), y)
+	if thumb != "":
+		state.append_album_entry({
+			"id": "travel_%s_y%d" % [dest_id, y],
+			"year": y,
+			"season": season_now,
+			"title": title,
+			"thumb_path": thumb,
+			"body": body,
+		})
 	state.note_year_event(title)
 	return {
 		"ok": true,
