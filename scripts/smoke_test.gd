@@ -2178,7 +2178,8 @@ func _run() -> void:
 			print("[smoke] dialogue chrome OK")
 		shell["panel"].free()
 
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok and dialogue_ok
+	var season_ui_ok: bool = await _check_season_summary()
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok and dialogue_ok and season_ui_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false
@@ -2201,3 +2202,163 @@ func _run() -> void:
 	else:
 		print("[smoke] FAIL")
 		quit(1)
+
+
+func _check_season_summary() -> bool:
+	var gs: Node = root.get_node_or_null("GameState")
+	if gs == null:
+		printerr("[smoke] FAIL season card: no GameState")
+		return false
+	var saved_year: int = gs.year
+	var saved_season: int = gs.season
+	var saved_deltas: Dictionary = gs.last_deltas.duplicate(true)
+	var saved_vignettes: Array = gs.last_vignettes.duplicate(true)
+	var saved_roam: Dictionary = gs.last_roaming_event.duplicate(true)
+	var saved_event: Dictionary = gs.last_season_event.duplicate(true)
+	gs.year = 1
+	gs.season = 2
+	gs.last_vignettes = []
+	gs.last_deltas = {
+		"charm": 5, "morals": 3, "social": 2, "stamina": 6,
+		"academia": 11, "mood": 6, "cash": 1790,
+		"activities": ["圖書館自習", "才藝課", "補習班"],
+	}
+	gs.last_roaming_event = {
+		"skipped": false,
+		"place_name": "商店街",
+		"title": "文具小物",
+		"body": "文具行裡她猶豫很久，最後選了一支粉紅原子筆。說要用它寫認真的日記。",
+		"deltas": {"charm": 1, "academia": 1, "cash": -60},
+	}
+	gs.last_season_event = {
+		"id": "autumn_mountain",
+		"title": "秋天上山旅行",
+		"body": "紅葉季節，你們搭公車到近郊山徑。她把楓葉夾進手帳，說要留給十二年後的自己看。",
+		"sticker": "autumn",
+		"media_still": "mountain",
+		"deltas": {"mood": 5, "stamina": 3, "social": 2, "morals": 1, "cash": -280},
+	}
+	var mountain := load("res://assets/events/mountain.jpg") as Texture2D
+	var fitted := UiStyle.contained_photo_size(mountain, Vector2(520, 300))
+	var src_aspect := float(mountain.get_width()) / float(mountain.get_height())
+	if fitted.x > 520.5 or fitted.y > 300.5 or absf(fitted.x / fitted.y - src_aspect) > 0.02:
+		printerr("[smoke] FAIL contained still size %s aspect %.3f" % [fitted, src_aspect])
+		_restore_season_summary(gs, saved_year, saved_season, saved_deltas, saved_vignettes, saved_roam, saved_event)
+		return false
+	var scene: Control = load("res://scenes/season_result.tscn").instantiate()
+	root.add_child(scene)
+	scene._dismiss_media()
+	scene.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	var ok := true
+	for sz in [Vector2(1280, 720), Vector2(800, 480), Vector2(390, 700)]:
+		scene.size = sz
+		await process_frame
+		await process_frame
+		await process_frame
+		if not _season_card_layout_ok(scene, sz):
+			ok = false
+	scene.free()
+	_restore_season_summary(gs, saved_year, saved_season, saved_deltas, saved_vignettes, saved_roam, saved_event)
+	if ok:
+		print("[smoke] season summary scroll + contained photos OK")
+	return ok
+
+
+func _restore_season_summary(gs: Node, year: int, season: int, deltas: Dictionary, vignettes: Array, roam: Dictionary, ev: Dictionary) -> void:
+	gs.year = year
+	gs.season = season
+	gs.last_deltas = deltas
+	gs.last_vignettes = vignettes
+	gs.last_roaming_event = roam
+	gs.last_season_event = ev
+
+
+func _season_card_layout_ok(scene: Control, sz: Vector2) -> bool:
+	var card := scene.find_child("SeasonCard", true, false) as Control
+	var scroll := scene.find_child("SeasonScroll", true, false) as ScrollContainer
+	var btn := scene.find_child("SeasonContinue", true, false) as Button
+	var still := scene.find_child("SeasonStill", true, false) as TextureRect
+	var stamp := scene.find_child("SeasonSticker", true, false) as TextureRect
+	var shots := scene.find_child("SeasonShots", true, false) as Control
+	if card == null or scroll == null or btn == null or still == null or stamp == null or shots == null:
+		printerr("[smoke] FAIL season card nodes missing at %s" % sz)
+		return false
+	if scroll.is_ancestor_of(btn) or btn.get_parent() == scroll:
+		printerr("[smoke] FAIL continue sits inside the scroller")
+		return false
+	if not btn.is_visible_in_tree() or btn.text != "繼續":
+		printerr("[smoke] FAIL continue hidden at %s" % sz)
+		return false
+	var scene_rect := scene.get_global_rect()
+	var btn_rect := btn.get_global_rect()
+	var card_rect := card.get_global_rect()
+	if btn_rect.size.y < 36.0 or btn_rect.position.y < scene_rect.position.y - 1.0 or btn_rect.end.y > scene_rect.end.y + 1.0 or btn_rect.position.x < scene_rect.position.x - 1.0 or btn_rect.end.x > scene_rect.end.x + 1.0:
+		printerr("[smoke] FAIL continue outside %s btn=%s scene=%s" % [sz, btn_rect, scene_rect])
+		return false
+	if btn_rect.end.y < card_rect.end.y - 80.0 or btn_rect.end.y > card_rect.end.y + 1.0:
+		printerr("[smoke] FAIL continue not pinned to card footer %s btn=%s card=%s" % [sz, btn_rect, card_rect])
+		return false
+	if scroll.get_global_rect().end.y > btn_rect.position.y + 2.0:
+		printerr("[smoke] FAIL scroller overlaps continue at %s" % sz)
+		return false
+	var y_before := btn.get_global_rect().position.y
+	var bar := scroll.get_v_scroll_bar()
+	var span := bar.max_value - bar.page
+	if span < 24.0:
+		printerr("[smoke] FAIL season body does not scroll at %s span=%.1f max=%.1f page=%.1f" % [sz, span, bar.max_value, bar.page])
+		return false
+	scroll.scroll_vertical = int(span)
+	if absf(btn.get_global_rect().position.y - y_before) > 1.0:
+		printerr("[smoke] FAIL continue moved when the diary scrolled")
+		return false
+	scroll.scroll_vertical = 0
+	var drag := InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = scroll.get_global_rect().get_center()
+	drag.relative = Vector2(0, -90)
+	scroll.gui_input.emit(drag)
+	var touch_handled_by_engine := Input.is_emulating_mouse_from_touch() and DisplayServer.is_touchscreen_available()
+	if scroll.scroll_vertical <= 0 and not touch_handled_by_engine:
+		printerr("[smoke] FAIL touch drag did not scroll season card at %s (value %s)" % [sz, scroll.scroll_vertical])
+		return false
+	if still.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_CENTERED or stamp.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_CENTERED:
+		printerr("[smoke] FAIL season photos are cover-cropped")
+		return false
+	if still.texture == null or stamp.texture == null or still.size.x < 8.0 or still.size.y < 8.0:
+		printerr("[smoke] FAIL season photo size %s / %s" % [still.size, stamp.size])
+		return false
+	var still_aspect := float(still.texture.get_width()) / float(still.texture.get_height())
+	var stamp_aspect := float(stamp.texture.get_width()) / float(stamp.texture.get_height())
+	if absf(still.size.x / still.size.y - still_aspect) > 0.08:
+		printerr("[smoke] FAIL still frame %.3f != texture %.3f size %s" % [still.size.x / still.size.y, still_aspect, still.size])
+		return false
+	if absf(stamp.size.x / stamp.size.y - stamp_aspect) > 0.08:
+		printerr("[smoke] FAIL stamp frame %.3f != texture %.3f size %s" % [stamp.size.x / stamp.size.y, stamp_aspect, stamp.size])
+		return false
+	if stamp_aspect < 0.95 and stamp.size.x > stamp.size.y * 1.15:
+		printerr("[smoke] FAIL tall stamp cover-cropped to landscape %s" % stamp.size)
+		return false
+	if shots.get_combined_minimum_size().x > scroll.size.x + 8.0:
+		printerr("[smoke] FAIL season photos wider than the card %s > %s" % [shots.get_combined_minimum_size().x, scroll.size.x])
+		return false
+	var labels := _body_labels(scroll)
+	if labels.is_empty():
+		printerr("[smoke] FAIL season card has no text")
+		return false
+	for node in labels:
+		if node.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			printerr("[smoke] FAIL %s eats wheel events" % node.name)
+			return false
+	return true
+
+
+func _body_labels(scroll: ScrollContainer) -> Array[Label]:
+	var out: Array[Label] = []
+	var walk: Array = [scroll]
+	while walk.size() > 0:
+		var node: Node = walk.pop_back()
+		if node is Label:
+			out.append(node)
+		for child in node.get_children():
+			walk.append(child)
+	return out
