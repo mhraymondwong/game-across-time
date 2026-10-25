@@ -1673,6 +1673,42 @@ func _run() -> void:
 				phase14_ok = false
 			else:
 				print("[smoke] album lightbox OK")
+		var stamp_tex := load("res://assets/weather/summer.png") as Texture2D
+		var family_tex := load("res://assets/family/family_early.jpg") as Texture2D
+		var stamp_sz := UiStyle.lightbox_photo_size(stamp_tex, UiStyle.LIGHTBOX_PHOTO_MAX)
+		var family_sz := UiStyle.lightbox_photo_size(family_tex, UiStyle.LIGHTBOX_PHOTO_MAX)
+		var stamp_ratio := stamp_sz.x / stamp_sz.y
+		if stamp_sz.x < 480.0 or stamp_ratio < 1.3 or stamp_ratio > 1.36:
+			printerr("[smoke] FAIL stamp frame %s ratio %.3f" % [stamp_sz, stamp_ratio])
+			phase14_ok = false
+		elif absf(stamp_sz.x - family_sz.x) > 1.0 or absf(stamp_sz.y - family_sz.y) > 1.0:
+			printerr("[smoke] FAIL stamp frame %s != photo %s" % [stamp_sz, family_sz])
+			phase14_ok = false
+		else:
+			UiStyle.show_diary_lightbox(album_node, stamp_tex, "才藝課的音", "琴房的門關不嚴")
+			var stamp_photo: TextureRect = null
+			var stamp_light := album_node.get_node_or_null("DiaryLightbox")
+			if stamp_light != null:
+				var stamp_walk: Array = [stamp_light]
+				while stamp_walk.size() > 0:
+					var stamp_node: Node = stamp_walk.pop_back()
+					if stamp_node is TextureRect and str(stamp_node.name) == "LandscapePhoto":
+						stamp_photo = stamp_node
+						break
+					for stamp_child in stamp_node.get_children():
+						stamp_walk.append(stamp_child)
+			if stamp_photo == null or stamp_photo.texture == null:
+				printerr("[smoke] FAIL stamp lightbox missing")
+				phase14_ok = false
+			elif stamp_photo.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_COVERED:
+				printerr("[smoke] FAIL stamp lightbox stretch")
+				phase14_ok = false
+			elif stamp_photo.custom_minimum_size.x < stamp_photo.custom_minimum_size.y * 1.25:
+				printerr("[smoke] FAIL stamp lightbox min %s" % stamp_photo.custom_minimum_size)
+				phase14_ok = false
+			else:
+				print("[smoke] stamp lightbox landscape %s" % stamp_sz)
+			UiStyle.dismiss_diary_lightbox(album_node)
 	album_node.free()
 
 	var review_node: Node = load("res://scenes/year_review.tscn").instantiate()
@@ -1738,6 +1774,12 @@ func _run() -> void:
 			phase14_ok = false
 		elif hub_place._popup_banner == null or hub_place._popup_banner.texture == null or not hub_place._popup_banner_frame.visible:
 			printerr("[smoke] FAIL place banner %s" % pid)
+			phase14_ok = false
+		elif hub_place._popup_banner.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_COVERED:
+			printerr("[smoke] FAIL place banner stretch %s" % pid)
+			phase14_ok = false
+		elif hub_place._popup_banner.custom_minimum_size.x < hub_place._popup_banner.custom_minimum_size.y * 1.6:
+			printerr("[smoke] FAIL place banner ratio %s" % hub_place._popup_banner.custom_minimum_size)
 			phase14_ok = false
 		elif hub_place._popup_pin == null or hub_place._popup_pin.texture == null:
 			printerr("[smoke] FAIL place pin %s" % pid)

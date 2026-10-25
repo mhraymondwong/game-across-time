@@ -30,13 +30,9 @@ func _ready() -> void:
 	var sticker_key := str(ev.get("sticker", ""))
 	var sticker_res := SeasonEvents.sticker_path(sticker_key)
 	if sticker_res != "" and ResourceLoader.exists(sticker_res):
-		var stick := TextureRect.new()
-		stick.texture = load(sticker_res)
-		stick.custom_minimum_size = Vector2(140, 280)
-		stick.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		stick.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		outer.add_child(stick)
+		var stick_tex := load(sticker_res) as Texture2D
+		if stick_tex != null:
+			outer.add_child(UiStyle.make_landscape_photo(stick_tex, Vector2(220, 165)))
 
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
@@ -451,14 +447,8 @@ func _vignette_art(v: Dictionary, highlighted: bool):
 	var tex := _load_tex(path)
 	if tex == null:
 		return null
-	var stick := TextureRect.new()
-	var side := 120 if highlighted else 72
-	stick.custom_minimum_size = Vector2(side, side + (36 if highlighted else 12))
-	stick.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	stick.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stick.texture = tex
-	return stick
+	var max_size := Vector2(176, 132) if highlighted else Vector2(120, 90)
+	return UiStyle.make_landscape_photo(tex, max_size)
 
 
 func _format_event_deltas(ed: Dictionary) -> String:
