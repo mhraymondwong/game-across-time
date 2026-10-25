@@ -461,9 +461,9 @@
 
 升學選擇畫面見 §27。網頁重匯不在這一節。圖用現成靜圖，沒有另外重畫。
 
-### 遠行圖（目前每一段都用這張）
+### 遠行圖
 
-五個目的地各有一張全家福。日本、亞洲、歐洲、澳洲不再借用童年全家福。相簿與遠行頁呼叫 `Travel.thumb_for(id, 年)`，今天每個年齡段都退回這張：
+五個目的地各有一張全家福，當年齡段專屬圖不在時的退路。相簿另有幼年、國小、國中、高中的全家福（`assets/album/travel_{dest}_{band}.jpg`，見 §30）。`Travel.thumb_for(id, 年)` 先拿該段還沒貼過的那張；成年沒有遠行，仍退回這張：
 
 | 目的地 | 目前的圖（各年齡段的退路） |
 |--------|------------------------------|
@@ -500,7 +500,7 @@
 
 `{dest}` 是 `china`／`japan`／`asia`／`europe`／`australia`。同名的 png 也可以。新局種下的那張合照走第 1 年（幼年）。
 
-女兒、媽媽、爸爸的五段肖像，以及相簿的五段全家福，已經放進 `assets/family/`。遠行 `{dest}_{band}` 靜圖仍缺，各年齡段繼續退回該目的地那張。
+女兒、媽媽、爸爸的五段肖像，以及相簿的五段全家福，已經放進 `assets/family/`。`assets/travel/{dest}_{band}` 仍沒有檔，`AgeLooks.travel_thumb` 還是退回目的地那張。相簿不重複貼那張退路，改用 §30 的 `assets/album/travel_{dest}_{band}.jpg`。
 
 主畫面女兒已改問 `AgeLooks.daughter_portrait`，媽媽立牌與對話改問 `mom_pin`／`mom_portrait`，所以會用到上面那些五段圖。缺檔才退回季立繪與原本的媽媽剪影。爸爸的五段圖用在女兒傾訴時、半身旁邊的「在聽」小像。這不是把六階季立繪收成五張；季立繪仍是女兒的退路。
 
@@ -527,7 +527,7 @@
 | 診所 | `assets/places/place_clinic.jpg` |
 | 文化中心 | `assets/places/place_culture.jpg` |
 
-**狀態**：Phase B；smoke 覆蓋五張遠行圖的路徑與檔案、`thumb_for` 在各年齡段都退回那張圖、五段年份對照、家人五段肖像與合照、相簿放大層的開啟與 Esc、六個地點的插畫、圖釘與貼紙。家人年齡段肖像已進庫，遠行年齡段靜圖仍缺，沒有重匯網頁版。升學見 §27。
+**狀態**：Phase B；smoke 覆蓋五張遠行退路圖的路徑與檔案、`thumb_for` 在幼年到高中改拿 §30 的年齡段全家福（成年仍退回目的地那張）、五段年份對照、家人五段肖像與合照、相簿放大層的開啟與 Esc、六個地點的插畫、圖釘與貼紙。升學見 §27。相簿內容見 §30。
 
 ## 27. Phase C — 升學分叉（大學／高中就業）
 
@@ -562,7 +562,7 @@
 
 GitHub 拒絕單檔 **100 MiB** 以上的推送。主包 `build/web/index.pck` 再加大就過不去。不要靠把貼圖改成 Lossy 來硬壓；匯入維持無損。重的目錄改走額外的 `.pck`，開場在標題畫面之前載入。
 
-清單是 `export/packs.json`。現在有兩包：`family`（`assets/family/` → `build/web/packs/family.pck`）和 `dialogue`（`assets/dialogue/` 的紙紋、角花、心事與工作小圖 → `build/web/packs/dialogue.pck`）。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。對話框缺這包時，半身和地點圖仍在，角花改用畫出來的小枝。
+清單是 `export/packs.json`。現在有三包：`family`（`assets/family/` → `build/web/packs/family.pck`）、`dialogue`（`assets/dialogue/` 的紙紋、角花、心事與工作小圖 → `build/web/packs/dialogue.pck`）、`album`（`assets/album/` 的相簿照片 → `build/web/packs/album.pck`，規則見 §30）。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。對話框缺這包時，半身和地點圖仍在，角花改用畫出來的小枝。
 
 之後再加一包（例如遠行靜圖）只要：
 
@@ -583,4 +583,17 @@ GitHub 拒絕單檔 **100 MiB** 以上的推送。主包 `build/web/index.pck` �
 - 玩家選的按鈕整列貼在面板最底下，至少約 48 像素高。存檔、選項、升學寫入的值都沒改。
 
 `assets/dialogue/` 走 `packs/dialogue.pck`，不進 `index.pck`。這次沒有重匯網頁版；要上 Pages 再跑 `./scripts/export_web.sh`。
+
+## 30. 相簿照片
+
+相簿裡的每一張，只能是下面兩種：
+
+1. **女兒自己**（才藝、琴房、打工、上台、跟朋友分開之後的街拍、成年的黃昏散步，都只拍她）。
+2. **女兒和爸媽一起**，而且是不同活動的合照（市集、海灘、爬山、短途、陪長輩散步、遠行、家裡多一雙筷子的那頓飯）。
+
+不要把這些當成照片貼進去：沒有人的天氣貼紙、空的地點圖、只有爸爸或只有媽媽的肖像。日記結算卡上的季節貼紙可以留著，那不是相簿。
+
+同一張檔只貼一次。同一個活動在同一個年齡段（幼年／國小／國中／高中／成年）只留第一張；這段年紀再遇到，句子還在季節日記裡，相簿不重複貼。下一個年齡段用另一張。國小或高中若同一趟遠行去了兩次，第二張是傍晚的另一個畫面（檔名 `_b`）。沒有沒貼過的圖，就乾脆不貼。
+
+圖在 `assets/album/`，走 `packs/album.pck`，不進 `index.pck`。目錄 `art_src/` 只是做圖時的空景，遊戲不讀。舊存檔若還指著貼紙或重複路徑，打開相簿時會改到對得上的那張，對不上又會重複的就拿掉。
 

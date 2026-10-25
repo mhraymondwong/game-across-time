@@ -150,7 +150,7 @@ func _dest_card(dest: Dictionary) -> PanelContainer:
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
 
-	var tex := _load_tex(Travel.thumb_for(dest_id, int(GameState.year)))
+	var tex := _load_tex(Travel.thumb_for(dest_id, int(GameState.year), AlbumPhotos.used_paths(GameState.album)))
 	if tex != null:
 		row.add_child(_photo_frame(tex, Vector2(112, 84)))
 
@@ -203,7 +203,7 @@ func _show_result(res: Dictionary) -> void:
 	var delta_line := Travel.format_deltas(res.get("deltas", {}))
 	if delta_line != "":
 		_add_meta(delta_line)
-	if bool(res.get("with_mom", false)):
+	if bool(res.get("with_mom", false)) and str(res.get("thumb", "")) != "":
 		_add_meta("這張照片裡，有媽媽。")
 	_body.add_child(_button("回到手帳 ♡", true, _back))
 

@@ -96,7 +96,9 @@ func _ready() -> void:
 
 func _entries() -> Array:
 	if not GameState.album_browse.is_empty():
+		GameState.album_browse = AlbumPhotos.sanitize(GameState.album_browse)
 		return GameState.album_browse
+	GameState.album = AlbumPhotos.sanitize(GameState.album)
 	return GameState.album
 
 
