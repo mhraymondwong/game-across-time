@@ -209,6 +209,58 @@ static func make_landscape_photo(tex: Texture2D, max_size: Vector2) -> AspectRat
 	return slot
 
 
+## Fit the whole texture inside max_size. Aspect stays; nothing is cropped.
+static func contained_photo_size(tex: Texture2D, max_size: Vector2) -> Vector2:
+	if tex == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+		return max_size
+	var aspect := float(tex.get_width()) / float(tex.get_height())
+	if aspect <= 0.0 or is_nan(aspect):
+		return max_size
+	var w := max_size.x
+	var h := w / aspect
+	if max_size.y > 0.0 and h > max_size.y:
+		h = max_size.y
+		w = h * aspect
+	return Vector2(maxf(w, 1.0), maxf(h, 1.0))
+
+
+## Diary photo that shows the full subject. Wide stills get a polaroid lip;
+## tall stamps are trimmed of plain paper, then contained (not cover-cropped).
+## Album frames stay on make_landscape_photo — that cover crop is only for the scrapbook.
+static func make_contained_diary_photo(tex: Texture2D, max_size: Vector2, polaroid: bool = true, node_name: String = "ContainedPhoto") -> PanelContainer:
+	var shown := tex
+	if tex != null and tex.get_height() > 0 and float(tex.get_width()) / float(tex.get_height()) < 1.2:
+		shown = _trim_plain_margins(tex)
+	var size := contained_photo_size(shown, max_size)
+	var frame := PanelContainer.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var inner := panel_style(Color("FFFAFC"), Color("F0C0D0"), 8)
+	inner.shadow_size = 4
+	inner.shadow_offset = Vector2(1, 2)
+	if polaroid:
+		inner.set_border_width_all(7)
+		inner.border_width_bottom = 18
+		inner.set_content_margin_all(5)
+	else:
+		inner.set_border_width_all(3)
+		inner.set_corner_radius_all(16)
+		inner.set_content_margin_all(6)
+	frame.add_theme_stylebox_override("panel", inner)
+	var photo := TextureRect.new()
+	photo.name = node_name
+	photo.texture = shown
+	photo.custom_minimum_size = size
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	photo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	photo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(photo)
+	return frame
+
+
 ## Full-screen pink diary lightbox. Tap outside,「闔上」, or Esc (via lightbox_consume_cancel).
 static func show_diary_lightbox(parent: Node, tex: Texture2D, title: String, body: String) -> void:
 	dismiss_diary_lightbox(parent)

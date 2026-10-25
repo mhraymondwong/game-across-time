@@ -5,43 +5,63 @@ var _media_layer: CanvasLayer
 var _video: VideoStreamPlayer
 var _still: TextureRect
 var _skip_btn: Button
-var _main_root: CenterContainer
+var _main_root: Control
+var _panel: PanelContainer
+var _scroll: ScrollContainer
+var _body: VBoxContainer
+var _cont: Button
+var _still_photo: TextureRect
+var _sticker_photo: TextureRect
 var _showing_media: bool = false
 var _vignette_layer: CanvasLayer
 var _showing_vignette: bool = false
 
+const _CARD_MAX_W := 820.0
+
 
 func _ready() -> void:
 	UiStyle.make_bg(self, GameConfig.COL_BG)
-	_main_root = CenterContainer.new()
-	_main_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_main_root)
+	_panel = PanelContainer.new()
+	_panel.name = "SeasonCard"
+	_panel.add_theme_stylebox_override("panel", UiStyle.panel_style())
+	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_panel)
+	_main_root = _panel
 
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UiStyle.panel_style())
-	panel.custom_minimum_size = Vector2(760, 540)
-	_main_root.add_child(panel)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 10)
+	_panel.add_child(column)
 
-	var outer := HBoxContainer.new()
-	outer.add_theme_constant_override("separation", 16)
-	panel.add_child(outer)
+	_scroll = ScrollContainer.new()
+	_scroll.name = "SeasonScroll"
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	_scroll.follow_focus = true
+	# Web touch arrives as a screen drag. On a reported touchscreen, Godot also
+	# turns that into mouse drag and ScrollContainer scrolls it. If the device
+	# does not report a touchscreen, scroll the drag here so the page still moves.
+	_scroll.gui_input.connect(_on_season_scroll_input)
+	column.add_child(_scroll)
+	_style_scroll(_scroll)
+
+	_body = VBoxContainer.new()
+	_body.name = "SeasonBody"
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.add_theme_constant_override("separation", 12)
+	_scroll.add_child(_body)
+	var v := _body
 
 	var ev: Dictionary = GameState.last_season_event
-	var sticker_key := str(ev.get("sticker", ""))
-	var sticker_res := SeasonEvents.sticker_path(sticker_key)
-	if sticker_res != "" and ResourceLoader.exists(sticker_res):
-		var stick_tex := load(sticker_res) as Texture2D
-		if stick_tex != null:
-			outer.add_child(UiStyle.make_landscape_photo(stick_tex, Vector2(220, 165)))
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outer.add_child(v)
 
 	var title := Label.new()
 	title.text = "季節結算"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(title, 28)
 	v.add_child(title)
 
@@ -54,6 +74,7 @@ func _ready() -> void:
 			GameState.get_time_label(), stage, GameConfig.growth_stage_label(stage)
 		]
 	time_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	time_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(time_lbl, 16, true)
 	v.add_child(time_lbl)
 
@@ -88,6 +109,7 @@ func _ready() -> void:
 	if not ev.is_empty():
 		var ev_title := Label.new()
 		ev_title.text = "☁ %s" % str(ev.get("title", "小鎮小事"))
+		ev_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		UiStyle.apply_label(ev_title, 20)
 		v.add_child(ev_title)
 		var ev_body := Label.new()
@@ -100,20 +122,32 @@ func _ready() -> void:
 		if ed_txt != "":
 			var ed_lbl := Label.new()
 			ed_lbl.text = ed_txt
+			ed_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			UiStyle.apply_label(ed_lbl, 14)
 			v.add_child(ed_lbl)
-		# Thumbnail of special still on result card
+		# Sticker + trip still, side by side, each contained so faces and stamp edges stay in frame.
+		var shot_row := HBoxContainer.new()
+		shot_row.name = "SeasonShots"
+		shot_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		shot_row.add_theme_constant_override("separation", 16)
+		shot_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var sticker_key := str(ev.get("sticker", ""))
+		var sticker_res := SeasonEvents.sticker_path(sticker_key)
+		if sticker_res != "" and ResourceLoader.exists(sticker_res):
+			var stick_tex := load(sticker_res) as Texture2D
+			if stick_tex != null:
+				var stamp := UiStyle.make_contained_diary_photo(stick_tex, Vector2(132, 200), false, "SeasonSticker")
+				_sticker_photo = stamp.get_node("SeasonSticker") as TextureRect
+				shot_row.add_child(stamp)
 		var media := SeasonEvents.resolve_media_paths(ev)
 		if media["still"] != "":
-			var thumb := TextureRect.new()
-			thumb.custom_minimum_size = Vector2(280, 160)
-			thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var tex := _load_tex(media["still"])
 			if tex:
-				thumb.texture = tex
-				v.add_child(thumb)
+				var still_frame := UiStyle.make_contained_diary_photo(tex, Vector2(520, 300), true, "SeasonStill")
+				_still_photo = still_frame.get_node("SeasonStill") as TextureRect
+				shot_row.add_child(still_frame)
+		if shot_row.get_child_count() > 0:
+			v.add_child(shot_row)
 
 	var roam: Dictionary = GameState.last_roaming_event
 	if not roam.is_empty() and not bool(roam.get("skipped", false)):
@@ -133,6 +167,7 @@ func _ready() -> void:
 			if roam_line != "":
 				var roam_lbl := Label.new()
 				roam_lbl.text = roam_line
+				roam_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				UiStyle.apply_label(roam_lbl, 14)
 				v.add_child(roam_lbl)
 
@@ -159,15 +194,25 @@ func _ready() -> void:
 		UiStyle.apply_label(aff_lbl, 15)
 		v.add_child(aff_lbl)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 6)
-	v.add_child(spacer)
+	var tail := Control.new()
+	tail.custom_minimum_size = Vector2(0, 4)
+	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(tail)
 
-	var cont := Button.new()
-	cont.text = "繼續"
-	UiStyle.apply_button(cont, true)
-	cont.pressed.connect(_on_continue)
-	v.add_child(cont)
+	# Sticky footer: always on the card, never inside the scroller.
+	_cont = Button.new()
+	_cont.name = "SeasonContinue"
+	_cont.text = "繼續"
+	UiStyle.apply_button(_cont, true)
+	_cont.pressed.connect(_on_continue)
+	column.add_child(_cont)
+
+	# Labels stop wheel and touch, so the scroller never sees them.
+	_ignore_pointer(_body)
+
+	resized.connect(_fit_panel)
+	_fit_panel()
+	call_deferred("_fit_panel")
 
 	var has_vig := not GameState.last_vignettes.is_empty()
 	if has_vig:
@@ -181,9 +226,118 @@ func _ready() -> void:
 			_vignette_layer.visible = false
 		_showing_media = true
 		_show_event_media(ev)
+		_skip_btn.grab_focus()
 	elif has_vig:
 		_main_root.visible = false
 		_showing_vignette = true
+		var vig_next := _vignette_layer.find_child("VignetteContinue", true, false) as Button
+		if vig_next:
+			vig_next.grab_focus()
+	else:
+		_focus_continue()
+
+
+func _fit_panel() -> void:
+	if _panel == null:
+		return
+	var vp := size
+	if vp.x < 64.0 or vp.y < 64.0:
+		return
+	var margin_x := 28.0 if vp.x >= 980.0 else 12.0
+	var margin_y := 18.0 if vp.y >= 640.0 else 8.0
+	var panel_w := clampf(vp.x - margin_x * 2.0, 260.0, _CARD_MAX_W)
+	var panel_h := maxf(vp.y - margin_y * 2.0, 120.0)
+	# Shrink photos before sizing the card. Otherwise the previous minimum
+	# width clamps the card and a narrow viewport cannot fit it.
+	_apply_image_limits(panel_w - 50.0)
+	_refresh_photo_minimums()
+	_panel.custom_minimum_size = Vector2.ZERO
+	_panel.update_minimum_size()
+	_panel.position = Vector2(maxf(0.0, (vp.x - panel_w) * 0.5), maxf(0.0, (vp.y - panel_h) * 0.5))
+	_panel.size = Vector2(panel_w, panel_h)
+	if _panel.size.x > panel_w + 2.0 or _panel.size.y > panel_h + 2.0:
+		call_deferred("_apply_panel_rect", panel_w, panel_h, vp)
+
+
+func _apply_panel_rect(panel_w: float, panel_h: float, vp: Vector2) -> void:
+	if _panel == null:
+		return
+	_refresh_photo_minimums()
+	_panel.custom_minimum_size = Vector2.ZERO
+	_panel.update_minimum_size()
+	_panel.position = Vector2(maxf(0.0, (vp.x - panel_w) * 0.5), maxf(0.0, (vp.y - panel_h) * 0.5))
+	_panel.size = Vector2(minf(panel_w, vp.x), minf(panel_h, vp.y))
+
+
+func _refresh_photo_minimums() -> void:
+	for photo in [_still_photo, _sticker_photo]:
+		var rect := photo as TextureRect
+		if rect == null:
+			continue
+		rect.update_minimum_size()
+		var frame := rect.get_parent() as Control
+		if frame:
+			frame.update_minimum_size()
+
+
+func _apply_image_limits(inner_w: float) -> void:
+	var gap := 16.0
+	var sticker_w := 0.0
+	if _sticker_photo != null and _sticker_photo.texture != null:
+		var st := UiStyle.contained_photo_size(_sticker_photo.texture, Vector2(132, 200))
+		_sticker_photo.custom_minimum_size = st
+		sticker_w = st.x + 28.0
+	var use_gap := gap if sticker_w > 0.0 and _still_photo != null else 0.0
+	if _still_photo != null and _still_photo.texture != null:
+		var budget := clampf(inner_w - sticker_w - use_gap - 36.0, 140.0, 520.0)
+		var max_box := Vector2(budget, clampf(budget * 0.62, 110.0, 300.0))
+		_still_photo.custom_minimum_size = UiStyle.contained_photo_size(_still_photo.texture, max_box)
+
+
+func _style_scroll(scroll: ScrollContainer) -> void:
+	var bar := scroll.get_v_scroll_bar()
+	bar.custom_minimum_size = Vector2(12, 0)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color("F8D4DE")
+	track.set_corner_radius_all(6)
+	track.set_content_margin_all(1)
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color("E890A8")
+	grab.set_corner_radius_all(6)
+	grab.content_margin_left = 2
+	grab.content_margin_right = 2
+	grab.content_margin_top = 8
+	grab.content_margin_bottom = 8
+	var grab_hot := grab.duplicate() as StyleBoxFlat
+	grab_hot.bg_color = Color("D87894")
+	bar.add_theme_stylebox_override("scroll", track)
+	bar.add_theme_stylebox_override("scroll_focus", track)
+	bar.add_theme_stylebox_override("grabber", grab)
+	bar.add_theme_stylebox_override("grabber_highlight", grab_hot)
+	bar.add_theme_stylebox_override("grabber_pressed", grab_hot)
+
+
+func _on_season_scroll_input(event: InputEvent) -> void:
+	var drag := event as InputEventScreenDrag
+	if drag == null or _scroll == null:
+		return
+	if Input.is_emulating_mouse_from_touch() and DisplayServer.is_touchscreen_available():
+		return
+	_scroll.scroll_vertical -= drag.relative.y
+
+
+func _ignore_pointer(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_ignore_pointer(child)
+
+
+func _focus_continue() -> void:
+	if _cont == null or _main_root == null:
+		return
+	if _main_root.visible and not _showing_media and not _showing_vignette:
+		_cont.grab_focus()
 
 
 func _load_tex(path: String) -> Texture2D:
@@ -305,8 +459,12 @@ func _dismiss_media() -> void:
 		_vignette_layer.visible = true
 		_showing_vignette = true
 		_main_root.visible = false
+		var vig_next := _vignette_layer.find_child("VignetteContinue", true, false) as Button
+		if vig_next:
+			vig_next.grab_focus()
 	else:
 		_main_root.visible = true
+		_focus_continue()
 
 
 func _dismiss_vignette() -> void:
@@ -314,6 +472,7 @@ func _dismiss_vignette() -> void:
 		_vignette_layer.visible = false
 	_showing_vignette = false
 	_main_root.visible = true
+	_focus_continue()
 
 
 func _build_vignette_layer() -> void:
@@ -386,6 +545,7 @@ func _build_vignette_layer() -> void:
 			list.add_child(_vignette_card(vignettes[i], false))
 
 	var next := Button.new()
+	next.name = "VignetteContinue"
 	next.text = "翻開結算 ♡"
 	UiStyle.apply_button(next, true)
 	next.pressed.connect(_dismiss_vignette)
