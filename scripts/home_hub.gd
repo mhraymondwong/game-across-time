@@ -1434,6 +1434,8 @@ func _refresh_mom() -> void:
 
 
 func _on_mom_pressed() -> void:
+	if _confide_popup != null and _confide_popup.visible:
+		return
 	if not Mom.is_present(GameState):
 		return
 	_hide_popups()
@@ -1762,10 +1764,16 @@ func _confide_label(text: String, size: int, muted: bool, min_h: int, center: bo
 func _show_confide_offer() -> void:
 	_clear_confide_box()
 	_paint_confide_frame(str(_confide_offer.get("id", "")))
+	var name_line := "%s想說說話" % GameState.daughter_display_name()
+	var hearer := str(_confide_offer.get("hearer", "dad"))
+	if hearer == "mom":
+		name_line = "%s想跟媽媽說" % GameState.daughter_display_name()
+	elif hearer == "parents":
+		name_line = "%s想跟你們說" % GameState.daughter_display_name()
 	DialogueChrome.apply_heading(
 		_confide_shell,
 		str(_confide_offer.get("kicker", "傾訴心事")),
-		"%s想說說話" % GameState.daughter_display_name()
+		name_line
 	)
 	_confide_box.add_child(_confide_label(str(_confide_offer.get("body", "")), 16, false, 72, false))
 
@@ -1826,7 +1834,11 @@ func _paint_confide_frame(line_id: String) -> void:
 	if _confide_shell.is_empty():
 		return
 	DialogueChrome.apply_speaker(_confide_shell, "daughter", GameState.year, GameState.season)
-	DialogueChrome.apply_listener(_confide_shell, "dad", GameState.year, GameState.season, "爸爸")
+	var hearer := str(_confide_offer.get("hearer", "dad"))
+	if hearer == "mom" or hearer == "parents":
+		DialogueChrome.apply_listener(_confide_shell, "mom", GameState.year, GameState.season, "媽媽")
+	else:
+		DialogueChrome.apply_listener(_confide_shell, "dad", GameState.year, GameState.season, "爸爸")
 	DialogueChrome.apply_theme(_confide_shell, DialogueChrome.theme_for_confide(line_id), GameState.year)
 
 

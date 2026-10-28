@@ -1154,9 +1154,8 @@ func _run() -> void:
 	gs.flags["tutorial_done"] = true
 	gs.months_played = 1
 	gs.flags["mom_present_1_0"] = true
-	var blocked_mom: Dictionary = Confide.offer_for(gs, confide_rng)
-	if not blocked_mom.is_empty() or bool(gs.flags.get("confide_rolled_1_0", false)):
-		printerr("[smoke] FAIL confide while mom is home")
+	if not Confide.can_offer(gs):
+		printerr("[smoke] FAIL mom home should still allow a family line")
 		phase11_ok = false
 	gs.begin_new_game()
 	gs.flags["tutorial_done"] = true
@@ -1168,6 +1167,160 @@ func _run() -> void:
 		phase11_ok = false
 	else:
 		print("[smoke] confide blocked by tutorial/mom OK")
+
+	var family_rng := RandomNumberGenerator.new()
+	family_rng.seed = 20261028
+	var allowed_delta_keys := ["mood", "social", "morals", "stamina"]
+	var saw_grow := false
+	var saw_praise := false
+	var saw_mom_line := false
+	var saw_parents_line := false
+	for family_line in Confide.LINES:
+		var family_id := str(family_line.get("id", ""))
+		var family_hearer := Confide.hearer_of(family_line)
+		if family_id in ["child_worry_grow", "teen_worry_grow", "teen_worry_tell"]:
+			saw_grow = true
+		if family_id in ["child_cling_praise", "teen_cling_praise", "child_cling_mom"]:
+			saw_praise = true
+		if family_hearer == "mom":
+			saw_mom_line = true
+		elif family_hearer == "parents":
+			saw_parents_line = true
+		if DialogueChrome.theme_for_confide(family_id) == "":
+			printerr("[smoke] FAIL confide theme missing %s" % family_id)
+			phase11_ok = false
+		var family_opts: Array = family_line.get("options", [])
+		if family_opts.size() < 2 or family_opts.size() > 3:
+			printerr("[smoke] FAIL confide option count %s" % family_id)
+			phase11_ok = false
+		if (family_hearer == "mom" or family_hearer == "parents") and not str(family_line.get("body", "")).contains("媽媽"):
+			printerr("[smoke] FAIL family line missing mom %s" % family_id)
+			phase11_ok = false
+		for family_opt in family_opts:
+			if typeof(family_opt) != TYPE_DICTIONARY:
+				continue
+			var family_deltas: Dictionary = family_opt.get("deltas", {})
+			for family_key in family_deltas.keys():
+				var family_amount := int(family_deltas[family_key])
+				if not allowed_delta_keys.has(str(family_key)) or absi(family_amount) > 5 or family_amount == 0:
+					printerr("[smoke] FAIL confide delta %s %s" % [family_id, str(family_key)])
+					phase11_ok = false
+			var family_warmth := int(family_opt.get("warmth", 0))
+			if family_warmth < 0 or family_warmth > 1:
+				printerr("[smoke] FAIL confide warmth range %s" % family_id)
+				phase11_ok = false
+	if not saw_grow or not saw_praise or not saw_mom_line or not saw_parents_line:
+		printerr("[smoke] FAIL confide pools grow=%s praise=%s mom=%s parents=%s" % [str(saw_grow), str(saw_praise), str(saw_mom_line), str(saw_parents_line)])
+		phase11_ok = false
+
+	gs.begin_new_game()
+	gs.year = 4
+	gs.season = 0
+	var dad_worry := false
+	var dad_cling := false
+	for _dad_i in range(30):
+		var dad_line: Dictionary = Confide.pick_line(gs, family_rng)
+		if Confide.hearer_of(dad_line) != "dad" or not str(dad_line.get("id", "")).begins_with("child_"):
+			printerr("[smoke] FAIL dad confide pool %s" % str(dad_line.get("id", "")))
+			phase11_ok = false
+			break
+		if str(dad_line.get("tone", "")) == "worry":
+			dad_worry = true
+		elif str(dad_line.get("tone", "")) == "cling":
+			dad_cling = true
+	gs.flags["mom_present_4_0"] = true
+	var home_mom := false
+	var home_parents := false
+	for _home_i in range(40):
+		var home_line: Dictionary = Confide.pick_line(gs, family_rng)
+		var home_hearer := Confide.hearer_of(home_line)
+		if home_hearer == "mom":
+			home_mom = true
+		elif home_hearer == "parents":
+			home_parents = true
+		else:
+			printerr("[smoke] FAIL mom-home confide hearer %s" % str(home_line.get("id", "")))
+			phase11_ok = false
+			break
+		if not str(home_line.get("id", "")).begins_with("child_"):
+			printerr("[smoke] FAIL mom-home band %s" % str(home_line.get("id", "")))
+			phase11_ok = false
+			break
+	if not dad_worry or not dad_cling or not home_mom or not home_parents:
+		printerr("[smoke] FAIL hearer coverage dad=%s/%s home=%s/%s" % [str(dad_worry), str(dad_cling), str(home_mom), str(home_parents)])
+		phase11_ok = false
+
+	gs.begin_new_game()
+	gs.year = 9
+	gs.season = 1
+	gs.flags["mom_present_9_1"] = true
+	var teen_home := false
+	for _teen_i in range(24):
+		var teen_home_line: Dictionary = Confide.pick_line(gs, family_rng)
+		if not str(teen_home_line.get("id", "")).begins_with("teen_") or Confide.hearer_of(teen_home_line) == "dad":
+			printerr("[smoke] FAIL teen mom-home %s" % str(teen_home_line.get("id", "")))
+			phase11_ok = false
+			break
+		teen_home = true
+	if not teen_home:
+		printerr("[smoke] FAIL teen mom-home empty")
+		phase11_ok = false
+
+	gs.begin_new_game()
+	gs.year = 3
+	gs.season = 0
+	gs.flags["tutorial_done"] = true
+	gs.months_played = 4
+	var grow_choice: Dictionary = Confide.apply_choice(gs, "child_worry_grow", 0)
+	if not bool(grow_choice.get("ok", false)) or not str(grow_choice.get("reply", "")).contains("小悠"):
+		printerr("[smoke] FAIL grow choice")
+		phase11_ok = false
+	gs.season = 1
+	if not Confide.offer_for(gs, family_rng).is_empty() or not bool(gs.flags.get("confide_rolled_3_1", false)):
+		printerr("[smoke] FAIL confide cooldown")
+		phase11_ok = false
+	elif not Confide.offer_for(gs, family_rng).is_empty():
+		printerr("[smoke] FAIL confide cooldown held")
+		phase11_ok = false
+	else:
+		print("[smoke] confide family hearers + cooldown OK")
+
+	gs.begin_new_game()
+	gs.year = 13
+	gs.season = 0
+	gs.months_played = 144
+	gs.flags["tutorial_done"] = true
+	gs.education_path = "undecided"
+	if not Confide.offer_for(gs, family_rng).is_empty() or bool(gs.flags.get("confide_rolled_13_0", false)):
+		printerr("[smoke] FAIL confide during education fork")
+		phase11_ok = false
+	gs.education_path = "university"
+	if not Confide.offer_for(gs, family_rng).is_empty() or bool(gs.flags.get("confide_rolled_13_0", false)):
+		printerr("[smoke] FAIL confide before adult job card")
+		phase11_ok = false
+	gs.flags["adult_job_intro_done"] = true
+	gs.romance = 10
+	gs.season_schedule = ["", "", ""] as Array[String]
+	var schedule_before: Array = gs.season_schedule.duplicate()
+	var adult_choice: Dictionary = Confide.apply_choice(gs, "adult_worry_late", 0)
+	var family_lock: Dictionary = Activities.availability("family_meet", gs)
+	if not bool(adult_choice.get("ok", false)):
+		printerr("[smoke] FAIL adult confide choice")
+		phase11_ok = false
+	elif int(gs.romance) != 10 or str(gs.season_schedule) != str(schedule_before) or bool(family_lock.get("ok", true)):
+		printerr("[smoke] FAIL confide touched adult schedule romance=%d lock=%s" % [int(gs.romance), str(family_lock)])
+		phase11_ok = false
+	elif Confide.chance_for(gs) != Confide.ADULT_CONFIDE_CHANCE:
+		printerr("[smoke] FAIL adult confide chance")
+		phase11_ok = false
+	else:
+		gs.flags["mom_present_13_0"] = true
+		var adult_home: Dictionary = Confide.pick_line(gs, family_rng)
+		if not str(adult_home.get("id", "")).begins_with("adult_") or Confide.hearer_of(adult_home) == "dad":
+			printerr("[smoke] FAIL adult mom-home %s" % str(adult_home.get("id", "")))
+			phase11_ok = false
+		else:
+			print("[smoke] adult confide respects schedule locks OK")
 
 	gs.begin_new_game()
 	gs.flags["tutorial_done"] = true
@@ -1269,7 +1422,7 @@ func _run() -> void:
 		printerr("[smoke] FAIL ending should return to the name panel")
 		phase11_ok = false
 	var hub_confide_src := FileAccess.get_file_as_string("res://scripts/home_hub.gd")
-	if not hub_confide_src.contains("Confide.offer_for"):
+	if not hub_confide_src.contains("Confide.offer_for") or not hub_confide_src.contains("想跟媽媽說") or not hub_confide_src.contains("想跟你們說"):
 		printerr("[smoke] FAIL hub confide hook")
 		phase11_ok = false
 	if load("res://scripts/confide.gd") == null or load("res://scripts/title.gd") == null or load("res://scripts/home_hub.gd") == null:
@@ -2140,7 +2293,7 @@ func _run() -> void:
 	if load("res://scripts/dialogue_chrome.gd") == null:
 		printerr("[smoke] FAIL dialogue chrome script")
 		dialogue_ok = false
-	elif DialogueChrome.theme_for_confide("child_worry_seat") != "school" or DialogueChrome.theme_for_confide("child_worry_candy") != "shop" or DialogueChrome.theme_for_confide("adult_worry_someone") != "romance" or DialogueChrome.theme_for_confide("adult_worry_late") != "work" or DialogueChrome.theme_for_confide("child_cling_hug") != "family":
+	elif DialogueChrome.theme_for_confide("child_worry_seat") != "school" or DialogueChrome.theme_for_confide("child_worry_candy") != "shop" or DialogueChrome.theme_for_confide("adult_worry_someone") != "romance" or DialogueChrome.theme_for_confide("adult_worry_late") != "work" or DialogueChrome.theme_for_confide("child_cling_hug") != "family" or DialogueChrome.theme_for_confide("child_worry_bento") != "school" or DialogueChrome.theme_for_confide("child_cling_praise") != "home" or DialogueChrome.theme_for_confide("adult_cling_table") != "family":
 		printerr("[smoke] FAIL confide theme map")
 		dialogue_ok = false
 	elif DialogueChrome.theme_for_line("回來啦。今天在學校畫了一朵很大的花。") != "school" or DialogueChrome.theme_for_line("去巷口就好") != "park" or DialogueChrome.theme_for_line("今晚想吃湯麵嗎") != "home":
