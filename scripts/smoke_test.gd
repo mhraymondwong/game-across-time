@@ -634,6 +634,11 @@ func _run() -> void:
 		"res://assets/travel/travel_asia_family.jpg",
 		"res://assets/travel/travel_europe_family.jpg",
 		"res://assets/travel/travel_australia_family.jpg",
+		"res://assets/travel/travel_china_scene.jpg",
+		"res://assets/travel/travel_japan_scene.jpg",
+		"res://assets/travel/travel_asia_scene.jpg",
+		"res://assets/travel/travel_europe_scene.jpg",
+		"res://assets/travel/travel_australia_scene.jpg",
 		"res://assets/places/place_home.jpg",
 		"res://assets/places/place_school.jpg",
 		"res://assets/places/place_park.jpg",
@@ -854,7 +859,40 @@ func _run() -> void:
 		elif not FileAccess.file_exists(ProjectSettings.globalize_path(thumb_path)):
 			printerr("[smoke] FAIL missing thumb file %s" % thumb_path)
 			phase10_ok = false
-	if phase10_ok:
+	var scene_ok := true
+	for dest_id in thumb_expect:
+		var scene_path := Travel.scene_for(str(dest_id))
+		var scene_file := "travel_%s_scene.jpg" % str(dest_id)
+		if not scene_path.ends_with(scene_file):
+			printerr("[smoke] FAIL %s scene %s" % [dest_id, scene_path])
+			scene_ok = false
+		elif not FileAccess.file_exists(ProjectSettings.globalize_path(scene_path)):
+			printerr("[smoke] FAIL missing scene %s" % scene_path)
+			scene_ok = false
+		elif AlbumPhotos.subject_of(scene_path) != "":
+			printerr("[smoke] FAIL scenery treated as a person %s" % scene_path)
+			scene_ok = false
+		elif AlbumPhotos.claim([], "travel_%s" % str(dest_id), 8) == scene_path:
+			printerr("[smoke] FAIL album claimed scenery %s" % scene_path)
+			scene_ok = false
+	if Travel.scene_for("missing") != "":
+		printerr("[smoke] FAIL unknown dest scene %s" % Travel.scene_for("missing"))
+		scene_ok = false
+	var manifest_text := FileAccess.get_file_as_string("res://export/packs.json")
+	var preset_text := FileAccess.get_file_as_string("res://export_presets.cfg")
+	var offer_src := FileAccess.get_file_as_string("res://scripts/travel_offer.gd")
+	if not manifest_text.contains("\"id\": \"travel\"") or not manifest_text.contains("packs/travel.pck") or not manifest_text.contains("res://assets/travel/"):
+		printerr("[smoke] FAIL travel pack manifest")
+		scene_ok = false
+	elif not preset_text.contains("assets/travel/*"):
+		printerr("[smoke] FAIL travel still packed into index")
+		scene_ok = false
+	elif not offer_src.contains("Travel.scene_for") or not travel_src.contains("scene_for"):
+		printerr("[smoke] FAIL destination scenes not wired")
+		scene_ok = false
+	if not scene_ok:
+		phase10_ok = false
+	elif phase10_ok:
 		print("[smoke] destination stills OK")
 	var band_expect := {
 		1: "early", 2: "early",
@@ -957,6 +995,9 @@ func _run() -> void:
 					saw_trip = false
 		if not saw_trip:
 			printerr("[smoke] FAIL china album entry")
+			phase10_ok = false
+		elif str(went.get("scene", "")) != "res://assets/travel/travel_china_scene.jpg" or str(went.get("thumb", "")) != "res://assets/album/travel_china_early.jpg":
+			printerr("[smoke] FAIL china scene/album split %s / %s" % [str(went.get("scene", "")), str(went.get("thumb", ""))])
 			phase10_ok = false
 		else:
 			print("[smoke] china depart album/stats/schedule OK")
@@ -2149,7 +2190,7 @@ func _run() -> void:
 	elif DialogueChrome.speaker_path("mom", 9, 0) != AgeLooks.mom_portrait(9) or DialogueChrome.speaker_path("dad", 8, 0) != AgeLooks.dad_portrait(8) or DialogueChrome.speaker_path("daughter", 16, 2) != AgeLooks.daughter_portrait(16, 2):
 		printerr("[smoke] FAIL dialogue speaker paths")
 		dialogue_ok = false
-	elif DialogueChrome.theme_art("family", 1) != AgeLooks.family_photo(1) or DialogueChrome.theme_art("school", 3) != "res://assets/places/place_school.jpg":
+	elif DialogueChrome.theme_art("family", 1) != AgeLooks.family_photo(1) or DialogueChrome.theme_art("school", 3) != "res://assets/places/place_school.jpg" or DialogueChrome.theme_art("travel", 8) != "res://assets/travel/travel_japan_scene.jpg":
 		printerr("[smoke] FAIL dialogue theme art")
 		dialogue_ok = false
 	elif not hub_gate.contains("DialogueChrome") or not hub_gate.contains("AgeLooks.mom_pin"):

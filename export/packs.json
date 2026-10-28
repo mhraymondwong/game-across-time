@@ -18,6 +18,12 @@
       "file": "packs/album.pck",
       "include": ["res://assets/album/"],
       "probe": "res://assets/album/arts_early.jpg"
+    },
+    {
+      "id": "travel",
+      "file": "packs/travel.pck",
+      "include": ["res://assets/travel/"],
+      "probe": "res://assets/travel/travel_japan_scene.jpg"
     }
   ]
 }

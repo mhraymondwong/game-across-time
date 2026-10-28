@@ -150,7 +150,7 @@ func _dest_card(dest: Dictionary) -> PanelContainer:
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
 
-	var tex := _load_tex(Travel.thumb_for(dest_id, int(GameState.year), AlbumPhotos.used_paths(GameState.album)))
+	var tex := _load_tex(Travel.scene_for(dest_id))
 	if tex != null:
 		row.add_child(_photo_frame(tex, Vector2(112, 84)))
 
@@ -196,9 +196,30 @@ func _show_result(res: Dictionary) -> void:
 	_clear_body()
 	_add_kicker("貼進相簿")
 	_add_title(str(res.get("title", "遠行")))
-	var tex := _load_tex(str(res.get("thumb", "")))
-	if tex != null:
-		_body.add_child(_photo_frame(tex, Vector2(480, 270)))
+	var scene_path := str(res.get("scene", ""))
+	var thumb_path := str(res.get("thumb", ""))
+	var scene_tex := _load_tex(scene_path)
+	var album_tex := _load_tex(thumb_path)
+	var scene_distinct := scene_tex != null and scene_path != thumb_path
+	if scene_distinct:
+		_body.add_child(_photo_frame(scene_tex, Vector2(480, 250)))
+	if album_tex != null and scene_distinct:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 14)
+		row.add_child(_photo_frame(album_tex, Vector2(148, 111)))
+		var note := Label.new()
+		note.text = "相簿貼上這張全家福。"
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		UiStyle.apply_label(note, 15, true)
+		row.add_child(note)
+		_body.add_child(row)
+	elif album_tex != null:
+		_body.add_child(_photo_frame(album_tex, Vector2(480, 270)))
+	elif scene_tex != null:
+		_body.add_child(_photo_frame(scene_tex, Vector2(480, 270)))
 	_add_body(str(res.get("body", "")))
 	var delta_line := Travel.format_deltas(res.get("deltas", {}))
 	if delta_line != "":

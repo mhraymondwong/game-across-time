@@ -473,6 +473,8 @@
 | 歐洲 | `assets/travel/travel_europe_family.jpg` |
 | 澳洲 | `assets/travel/travel_australia_family.jpg` |
 
+目的地風景（沒有人的景）在 `assets/travel/travel_{dest}_scene.jpg`：江邊、神社石階、夜市、石板路黃昏、寬闊的海岸。選擇卡與出發後的短過場先看這張。相簿仍貼年齡段全家福，不把空景當照片。風景缺檔時，選擇卡退回上表的全家福。風景與全家福一起走 `packs/travel.pck`，不進 `index.pck`。網頁包要在下次 `./scripts/export_web.sh` 之後才會帶上這一包。
+
 ### 年齡段外貌 `age_bands_family`
 
 女兒、媽媽、爸爸各自一段一個樣子。遠行全家福、主畫面立繪、媽媽剪影、相簿合照，最後都按這五段挑圖。這一次只把選圖的入口接上；缺的圖不畫、也不用別張冒充。
@@ -562,9 +564,9 @@
 
 GitHub 拒絕單檔 **100 MiB** 以上的推送。主包 `build/web/index.pck` 再加大就過不去。不要靠把貼圖改成 Lossy 來硬壓；匯入維持無損。重的目錄改走額外的 `.pck`，開場在標題畫面之前載入。
 
-清單是 `export/packs.json`。現在有三包：`family`（`assets/family/` → `build/web/packs/family.pck`）、`dialogue`（`assets/dialogue/` 的紙紋、角花、心事與工作小圖 → `build/web/packs/dialogue.pck`）、`album`（`assets/album/` 的相簿照片 → `build/web/packs/album.pck`，規則見 §30）。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。對話框缺這包時，半身和地點圖仍在，角花改用畫出來的小枝。
+清單是 `export/packs.json`。現在有四包：`family`（`assets/family/` → `build/web/packs/family.pck`）、`dialogue`（`assets/dialogue/` 的紙紋、角花、心事與工作小圖 → `build/web/packs/dialogue.pck`）、`album`（`assets/album/` 的相簿照片 → `build/web/packs/album.pck`，規則見 §30）、`travel`（`assets/travel/` 的目的地風景與全家福退路 → `build/web/packs/travel.pck`）。日記載入畫面還在時，`export/web_shell.html` 用相對網址抓 `packs.json` 與各個 `.pck`（子路徑 `/game-across-time/` 不用 `<base href>`）。`ResourcePacks` 自動載入在 `GameState` 之前，所以主畫面要用的家人圖已經在。編輯器與無頭 smoke 不讀 `.pck`，專案裡的檔還在就當已經載好。對話框缺這包時，半身和地點圖仍在，角花改用畫出來的小枝。
 
-之後再加一包（例如遠行靜圖）只要：
+之後再加一包只要：
 
 1. 在 `export/packs.json` 的 `packs` 加一筆：`id`、`file`（`packs/某個名字.pck`）、`include`（`res://` 目錄前綴）、`probe`（該目錄裡一定有的一張圖）。
 2. 在 `export_presets.cfg` 的 Web preset，`exclude_filter` 補上對應的 `目錄/*`（跟現有的 `assets/family/*` 並列）。
