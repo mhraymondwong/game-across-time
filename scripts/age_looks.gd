@@ -5,6 +5,7 @@ extends RefCounted
 ##
 ## TODO(art): 女兒、媽媽、爸爸與全家福的五段圖已在 assets/family/。
 ## 解析時若檔案不在，就退回現在這一張，不要另造暫代圖。
+## 目的地風景是 assets/travel/travel_{dest}_scene.jpg（選擇卡與短過場），不是年齡段全家福。
 ## 遠行 assets/travel/{dest}_{band} 仍缺，繼續退回 travel_{dest}_family.jpg。
 ##
 ## 檔名裡的 band：

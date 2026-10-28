@@ -1,7 +1,7 @@
 class_name DialogueChrome
 extends RefCounted
 ## Illustrated diary frame for conversations.
-## Speaker busts come from AgeLooks. Theme stamps reuse place / family art.
+## Speaker busts come from AgeLooks. Theme stamps reuse place art, family photos, and the Japan trip scene.
 ## Corner blossoms, washi, and the two abstract stamps live in assets/dialogue/
 ## and ship in packs/dialogue.pck so they stay out of index.pck.
 ## If that pack is missing, portraits and place photos still show, and the
@@ -132,7 +132,10 @@ static func theme_art(theme: String, year: int) -> String:
 		"work":
 			return WORK_PATH
 		"travel":
-			return AgeLooks.travel_thumb("japan", year, str(THEME_ART.get("travel", "")))
+			var scene := Travel.scene_for("japan")
+			if scene != "":
+				return scene
+			return str(THEME_ART.get("travel", ""))
 		_:
 			return str(THEME_ART.get(theme, ""))
 

@@ -3,9 +3,10 @@ extends RefCounted
 ## 每兩年一次的遠行：第 2、4、6、8、10、12 年。
 ## 夏天進入主畫面時先問要不要出發；可留到冬天，或今年不去。
 ## 不取代每季三個活動格（「短途旅行」仍是普通休閒活動）。
-## 每個目的地用自己的全家福。相簿與選擇卡走 thumb_for（age_bands_family）。
+## 選擇卡與短過場先看目的地風景 travel_{id}_scene.jpg。
+## 相簿仍貼年齡段全家福，不把空景當照片。風景缺檔才退回全家福。
 ## 幼年／國小／國中／高中的相簿圖在 assets/album/travel_{id}_{band}.jpg。
-## 同一年齡段的第二次同地旅行用 _b。沒有空檔時才退回下面這張，而且不重複貼。
+## 同一年齡段的第二次同地旅行用 _b。沒有空檔時不貼，而且不重複貼。
 
 const TRAVEL_YEARS: Array[int] = [2, 4, 6, 8, 10, 12]
 const THUMB_CHINA := "res://assets/travel/travel_china_family.jpg"
@@ -111,10 +112,19 @@ static func get_dest(dest_id: String) -> Dictionary:
 	return {}
 
 
+## Empty place still for the offer card and the trip vignette.
+## Album pages stay on age-band family plates (thumb_for / AlbumPhotos.claim).
+static func scene_for(dest_id: String) -> String:
+	var scene := "res://assets/travel/travel_%s_scene.jpg" % dest_id.strip_edges()
+	if _exists(scene):
+		return scene
+	return str(get_dest(dest_id).get("thumb", ""))
+
+
 ## Family still for this destination at this game year.
 ## Album plates live in assets/album/travel_{dest}_{band}.jpg (age_bands_family).
 ## `used` skips a file already pasted in the album. With no free plate, the
-## offer card falls back to the single destination JPG; depart will not paste
+## caller falls back to the single destination family JPG; depart will not paste
 ## that fallback a second time.
 static func thumb_for(dest_id: String, year: int, used: Array = []) -> String:
 	var theme := AlbumPhotos.theme_for_travel(dest_id)
@@ -234,6 +244,7 @@ static func depart(state, dest_id: String) -> Dictionary:
 		"title": title,
 		"body": body,
 		"thumb": thumb,
+		"scene": scene_for(dest_id),
 		"deltas": deltas,
 		"cost": cost,
 		"place": str(dest.get("place", "")),
@@ -244,3 +255,12 @@ static func depart(state, dest_id: String) -> Dictionary:
 
 static func format_deltas(deltas: Dictionary) -> String:
 	return Mom.format_deltas(deltas)
+
+
+static func _exists(path: String) -> bool:
+	if path == "":
+		return false
+	if ResourceLoader.exists(path):
+		return true
+	var abs := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	return FileAccess.file_exists(abs)
