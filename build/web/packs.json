@@ -8,7 +8,7 @@
         "res://assets/family/"
       ],
       "probe": "res://assets/family/daughter_early.png",
-      "bytes": 19821476
+      "bytes": 18481812
     },
     {
       "id": "dialogue",
@@ -17,7 +17,7 @@
         "res://assets/dialogue/"
       ],
       "probe": "res://assets/dialogue/paper_tile.png",
-      "bytes": 5553920
+      "bytes": 5555504
     },
     {
       "id": "album",
@@ -26,7 +26,7 @@
         "res://assets/album/"
       ],
       "probe": "res://assets/album/arts_early.jpg",
-      "bytes": 38993356
+      "bytes": 40032928
     },
     {
       "id": "travel",
@@ -35,7 +35,16 @@
         "res://assets/travel/"
       ],
       "probe": "res://assets/travel/travel_japan_scene.jpg",
-      "bytes": 15996868
+      "bytes": 15998452
+    },
+    {
+      "id": "adulthood",
+      "file": "packs/adulthood.pck",
+      "include": [
+        "res://assets/adulthood/"
+      ],
+      "probe": "res://assets/adulthood/adult_y13_spring.png",
+      "bytes": 10749948
     }
   ]
 }
