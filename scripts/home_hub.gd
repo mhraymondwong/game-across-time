@@ -434,7 +434,7 @@ func _build_layout() -> void:
 	UiStyle.apply_label(_save_toast, 13, true)
 	stats_col.add_child(_save_toast)
 
-	# --- Full-body girl: spans map + drawer; art swaps by age band ---
+	# --- Full-body girl: childhood swaps by age band; adulthood by year and season ---
 	_girl = TextureRect.new()
 	_girl.name = "DaughterFullbody"
 	_girl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1185,7 +1185,7 @@ func _make_npc_popup() -> PanelContainer:
 	v.add_child(title)
 
 	var sub := Label.new()
-	sub.text = "好感會跟著活動、地圖小事與季節，慢慢暖起來。媽媽是家人，不在這裡計分。"
+	sub.text = "好感會跟著活動、地圖小事與季節，慢慢暖起來。爸媽是家人，不在這裡計分。"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(sub, 13, true)
@@ -1549,14 +1549,18 @@ func _mom_family_card() -> PanelContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	card.add_child(row)
-	row.add_child(_npc_thumb(AgeLooks.mom_portrait(GameState.year), true))
+	var portraits := HBoxContainer.new()
+	portraits.add_theme_constant_override("separation", 6)
+	portraits.add_child(_npc_thumb(AgeLooks.mom_portrait(GameState.year), true))
+	portraits.add_child(_npc_thumb(AgeLooks.dad_portrait(GameState.year), true))
+	row.add_child(portraits)
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 2)
 	row.add_child(col)
 
 	var head := Label.new()
-	head.text = "%s　·　家人　·　家" % Mom.NAME
+	head.text = "媽媽、爸爸　·　家人　·　%s" % AgeLooks.label_for_year(GameState.year)
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(head, 16)
 	col.add_child(head)

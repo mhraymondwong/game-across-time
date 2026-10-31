@@ -601,6 +601,41 @@
       "theme": "travel_australia",
       "band": "senior",
       "alt": true
+    },
+    {
+      "path": "res://assets/album/travel_china_adult.jpg",
+      "subject": "family",
+      "theme": "travel_china",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_japan_adult.jpg",
+      "subject": "family",
+      "theme": "travel_japan",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_asia_adult.jpg",
+      "subject": "family",
+      "theme": "travel_asia",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_europe_adult.jpg",
+      "subject": "family",
+      "theme": "travel_europe",
+      "band": "adult",
+      "alt": false
+    },
+    {
+      "path": "res://assets/album/travel_australia_adult.jpg",
+      "subject": "family",
+      "theme": "travel_australia",
+      "band": "adult",
+      "alt": false
     }
   ]
 }

@@ -706,6 +706,16 @@ func _run() -> void:
 			phase10_ok = false
 		else:
 			print("[smoke] cutout alpha %s OK" % cut)
+	for look_band_alpha in AgeLooks.BANDS:
+		for rel_alpha in [
+			"res://assets/family/mom_%s_cutout.png" % look_band_alpha,
+			"res://assets/family/mom_%s_bust.png" % look_band_alpha,
+			"res://assets/family/dad_%s.png" % look_band_alpha,
+		]:
+			var band_img := Image.load_from_file(ProjectSettings.globalize_path(rel_alpha))
+			if band_img == null or band_img.detect_alpha() == Image.ALPHA_NONE:
+				printerr("[smoke] FAIL age-band cutout missing alpha %s" % rel_alpha)
+				phase10_ok = false
 	var travel_src := FileAccess.get_file_as_string("res://scripts/travel.gd")
 	if travel_src.contains("THUMB_FAMILY_TEMP") or travel_src.contains("family_photo_child.jpg") or travel_src.contains("Temporary thumb"):
 		printerr("[smoke] FAIL travel still uses placeholder art")
@@ -920,20 +930,40 @@ func _run() -> void:
 	elif not str(AgeLooks.family_photo(1)).ends_with("family_early.jpg") or not str(AgeLooks.family_photo(15)).ends_with("family_adult.jpg"):
 		printerr("[smoke] FAIL family photo band %s / %s" % [AgeLooks.family_photo(1), AgeLooks.family_photo(15)])
 		phase10_ok = false
-	elif AgeLooks.daughter_portrait(16, 2) != "res://assets/family/daughter_adult.png":
-		printerr("[smoke] FAIL daughter band art %s" % AgeLooks.daughter_portrait(16, 2))
+	elif AgeLooks.daughter_portrait(4, 1) != "res://assets/family/daughter_elementary.png":
+		printerr("[smoke] FAIL childhood hub should stay on the age band %s" % AgeLooks.daughter_portrait(4, 1))
+		phase10_ok = false
+	elif not str(AgeLooks.daughter_portrait(16, 2)).ends_with("adult_y16_autumn.png"):
+		printerr("[smoke] FAIL adult hub should use the yearly seasonal plate %s" % AgeLooks.daughter_portrait(16, 2))
+		phase10_ok = false
+	elif AgeLooks.daughter_portrait(13, 0) == AgeLooks.daughter_portrait(18, 3):
+		printerr("[smoke] FAIL adult years share one portrait")
 		phase10_ok = false
 	elif Travel.thumb_for("japan", 2) != "res://assets/album/travel_japan_early.jpg" or Travel.thumb_for("japan", 8) != "res://assets/album/travel_japan_junior.jpg":
 		printerr("[smoke] FAIL japan age-band thumb %s / %s" % [Travel.thumb_for("japan", 2), Travel.thumb_for("japan", 8)])
 		phase10_ok = false
-	elif Travel.thumb_for("japan", 18) != str(Travel.get_dest("japan").get("thumb", "")) or Travel.thumb_for("japan", 8) == Travel.thumb_for("japan", 18):
-		printerr("[smoke] FAIL japan adult thumb fallback %s" % Travel.thumb_for("japan", 18))
+	elif Travel.thumb_for("japan", 18) != "res://assets/album/travel_japan_adult.jpg" or Travel.thumb_for("japan", 8) == Travel.thumb_for("japan", 18):
+		printerr("[smoke] FAIL japan adult thumb %s" % Travel.thumb_for("japan", 18))
 		phase10_ok = false
 	elif Travel.thumb_for("europe", 12) != "res://assets/album/travel_europe_senior.jpg":
 		printerr("[smoke] FAIL europe thumb_for %s" % Travel.thumb_for("europe", 12))
 		phase10_ok = false
 	else:
-		print("[smoke] age_bands_family portraits OK")
+		var adult_travel_ok := true
+		for dest_id in thumb_expect:
+			var adult_plate := Travel.thumb_for(str(dest_id), 18)
+			var senior_plate := Travel.thumb_for(str(dest_id), 12)
+			var fixed_plate := str(Travel.get_dest(str(dest_id)).get("thumb", ""))
+			if adult_plate != "res://assets/album/travel_%s_adult.jpg" % str(dest_id):
+				printerr("[smoke] FAIL %s adult travel plate %s" % [dest_id, adult_plate])
+				adult_travel_ok = false
+			elif adult_plate == senior_plate or adult_plate == fixed_plate:
+				printerr("[smoke] FAIL %s adult travel reuses another face %s" % [dest_id, adult_plate])
+				adult_travel_ok = false
+		if adult_travel_ok:
+			print("[smoke] age_bands_family portraits OK")
+		else:
+			phase10_ok = false
 
 	gs.begin_new_game()
 	gs.year = 3
@@ -1568,14 +1598,34 @@ func _run() -> void:
 	if adult_art == "":
 		printerr("[smoke] FAIL adult portrait path empty")
 		phase13_ok = false
-	elif not adult_art.contains("adult_y16_") and adult_art != youth_art:
-		printerr("[smoke] FAIL adult portrait should reuse youth or adult_y16, got %s" % adult_art)
+	elif not adult_art.ends_with("adult_y16_autumn.png"):
+		printerr("[smoke] FAIL adult portrait should be the year-16 autumn plate, got %s" % adult_art)
+		phase13_ok = false
+	elif adult_art == youth_art:
+		printerr("[smoke] FAIL adult portrait still reuses youth %s" % adult_art)
 		phase13_ok = false
 	else:
-		print("[smoke] adult portrait fallback %s OK" % adult_art)
+		print("[smoke] adult portrait %s OK" % adult_art)
+	for adult_year in range(13, 19):
+		for season_key in ["spring", "summer", "autumn", "winter"]:
+			var plate := "res://assets/adulthood/adult_y%d_%s.png" % [adult_year, season_key]
+			if not FileAccess.file_exists(ProjectSettings.globalize_path(plate)):
+				printerr("[smoke] FAIL missing adult plate %s" % plate)
+				phase13_ok = false
+			elif GameConfig.wardrobe_path_for_year_season(adult_year, ["spring", "summer", "autumn", "winter"].find(season_key)) != plate:
+				printerr("[smoke] FAIL adult plate lookup %s -> %s" % [plate, GameConfig.wardrobe_path_for_year_season(adult_year, ["spring", "summer", "autumn", "winter"].find(season_key))])
+				phase13_ok = false
 	var cfg_src := FileAccess.get_file_as_string("res://scripts/config.gd")
 	if not cfg_src.contains("adult_y") or not cfg_src.contains("TODO"):
 		printerr("[smoke] FAIL adult portrait TODO missing")
+		phase13_ok = false
+	var adult_manifest := FileAccess.get_file_as_string("res://export/packs.json")
+	var adult_preset := FileAccess.get_file_as_string("res://export_presets.cfg")
+	if not adult_manifest.contains("\"id\": \"adulthood\"") or not adult_manifest.contains("packs/adulthood.pck") or not adult_manifest.contains("res://assets/adulthood/"):
+		printerr("[smoke] FAIL adulthood pack manifest")
+		phase13_ok = false
+	elif not adult_preset.contains("assets/adulthood/*"):
+		printerr("[smoke] FAIL adulthood art still packed into index")
 		phase13_ok = false
 	if GameConfig.life_phase_label(18) != "成年" or GameConfig.age_for_year(18) != 23 or GameConfig.age_for_year(13) != 18:
 		printerr("[smoke] FAIL adult age/phase")

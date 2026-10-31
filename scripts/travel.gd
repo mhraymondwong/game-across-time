@@ -5,7 +5,7 @@ extends RefCounted
 ## 不取代每季三個活動格（「短途旅行」仍是普通休閒活動）。
 ## 選擇卡與短過場先看目的地風景 travel_{id}_scene.jpg。
 ## 相簿仍貼年齡段全家福，不把空景當照片。風景缺檔才退回全家福。
-## 幼年／國小／國中／高中的相簿圖在 assets/album/travel_{id}_{band}.jpg。
+## 幼年／國小／國中／高中／成年的相簿圖在 assets/album/travel_{id}_{band}.jpg。
 ## 同一年齡段的第二次同地旅行用 _b。沒有空檔時不貼，而且不重複貼。
 
 const TRAVEL_YEARS: Array[int] = [2, 4, 6, 8, 10, 12]
@@ -122,7 +122,7 @@ static func scene_for(dest_id: String) -> String:
 
 
 ## Family still for this destination at this game year.
-## Album plates live in assets/album/travel_{dest}_{band}.jpg (age_bands_family).
+## Album plates live in assets/album/travel_{dest}_{band}.jpg, including adult (age_bands_family).
 ## `used` skips a file already pasted in the album. With no free plate, the
 ## caller falls back to the single destination family JPG; depart will not paste
 ## that fallback a second time.

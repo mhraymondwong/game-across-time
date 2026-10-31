@@ -24,6 +24,12 @@
       "file": "packs/travel.pck",
       "include": ["res://assets/travel/"],
       "probe": "res://assets/travel/travel_japan_scene.jpg"
+    },
+    {
+      "id": "adulthood",
+      "file": "packs/adulthood.pck",
+      "include": ["res://assets/adulthood/"],
+      "probe": "res://assets/adulthood/adult_y13_spring.png"
     }
   ]
 }

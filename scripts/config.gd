@@ -155,9 +155,11 @@ static func wardrobe_path(stage: int, season: int) -> String:
 
 ## Adult outfits keep childhood's seasonal cadence, one set per adult year
 ## (art_yearly_season): ages 18–23 are years 13–18.
-## TODO(art): draw res://assets/wardrobe/adult_y{13-18}_{spring|summer|autumn|winter}.png
-## (png or jpg). Do not invent stand-in files. Until a year has art, reuse the
-## latest youth stage (s5, 青年) of the same season.
+## Plates live in assets/adulthood/ and ship as packs/adulthood.pck so they
+## stay out of index.pck. A wardrobe/ copy is still accepted.
+## TODO(art): these yearly plates are stylistic stand-ins (same face, new clothes
+## per year and season), not the final painted set. A missing season reuses
+## another season of that same year. A missing year still falls back to youth s5.
 static func wardrobe_path_for_year_season(year: int, season: int) -> String:
 	if is_adult_year(year):
 		var adult := _adult_wardrobe_path(year, season)
@@ -172,12 +174,17 @@ static func _adult_wardrobe_path(year: int, season: int) -> String:
 	for s in range(4):
 		if s not in seasons_try:
 			seasons_try.append(s)
+	var folders: Array[String] = [
+		"res://assets/adulthood/",
+		"res://assets/wardrobe/",
+	]
 	for s_idx in seasons_try:
 		var key := season_key(s_idx)
-		for ext in ["png", "jpg"]:
-			var p := "res://assets/wardrobe/adult_y%d_%s.%s" % [year, key, ext]
-			if _file_exists(p):
-				return p
+		for folder in folders:
+			for ext in ["png", "jpg"]:
+				var p := "%sadult_y%d_%s.%s" % [folder, year, key, ext]
+				if _file_exists(p):
+					return p
 	return ""
 
 

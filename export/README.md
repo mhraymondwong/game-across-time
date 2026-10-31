@@ -23,8 +23,9 @@ Godot 4.7.2 的 Web 匯出寫進 `build/web/`。GitHub 不接受單檔 **100 MiB
 | `dialogue` | `res://assets/dialogue/` | `build/web/packs/dialogue.pck` |
 | `album` | `res://assets/album/` | `build/web/packs/album.pck` |
 | `travel` | `res://assets/travel/` | `build/web/packs/travel.pck` |
+| `adulthood` | `res://assets/adulthood/` | `build/web/packs/adulthood.pck` |
 
-家人年齡段圖是目前最重的一組。遠行風景與全家福退路已經是 `travel` 這一包。再加別的目錄，照下面的步驟，不必改載入器。
+家人年齡段圖在 `family`。18–23 歲每年每季的立繪在 `adulthood`，不進主包。遠行風景與全家福退路是 `travel`。再加別的目錄，照下面的步驟，不必改載入器。`build/web` 要等下次 `./scripts/export_web.sh` 才會帶上 `adulthood.pck`。
 
 ## 再加一包
 
