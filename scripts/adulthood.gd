@@ -154,6 +154,30 @@ static func job_name_of(id: String) -> String:
 	return str(job_def(id).get("name", ""))
 
 
+static func job_stamina_label(job: Dictionary) -> String:
+	var effects: Dictionary = job.get("effects", {})
+	var stam := int(effects.get("stamina", 0))
+	if stam > 0:
+		return "體力 ＋%d／月" % stam
+	if stam < 0:
+		return "體力 －%d／月" % abs(stam)
+	return "體力　幾乎不耗"
+
+
+static func job_fit_line(state, job: Dictionary) -> String:
+	var bits: PackedStringArray = []
+	for tid in job.get("tags", []):
+		if GrowthPath.points_of(state, str(tid)) >= 2:
+			bits.append(GrowthPath.tag_name(str(tid)))
+	for sid in job.get("skills", []):
+		var lv := GrowthPath.level_of(state, str(sid))
+		if lv > 0:
+			bits.append("%s%s" % [GrowthPath.skill_name(str(sid)), GrowthPath.level_name(lv)])
+	if bits.is_empty():
+		return ""
+	return "對上　%s" % "、".join(bits)
+
+
 static func education_path_of(state) -> String:
 	return str(state.education_path).strip_edges()
 
@@ -441,6 +465,48 @@ static func hub_life_line(state) -> String:
 	return "%s\n%s" % [romance_line(state), family_line(state)]
 
 
+static func romance_guide() -> String:
+	return "靠近一個人：黃昏散步、寫一封短短的信、一起準備晚餐，都會把戀愛進度往前推。\n到了「可以排進日記」（心裡有了位置之前的那一階），成家三選才會打開。再自己排兩次成家，而且心走到「心裡有了位置」，手帳才算成家。\n不排也走得完。這一筆會被結局讀到，不改五條屬性，也不改平日工作。"
+
+
+static func schedule_nudge(state) -> String:
+	if not is_adult(state) or bool(state.family_settled):
+		return ""
+	var rom := int(state.romance)
+	if rom >= FAMILY_SETTLE_ROMANCE and int(state.family_prep) < FAMILY_SETTLE_PREP:
+		var left := FAMILY_SETTLE_PREP - int(state.family_prep)
+		return "再選 %d 次成家類，可能推進成家。" % left
+	if rom >= FAMILY_ROMANCE_MIN and rom < FAMILY_SETTLE_ROMANCE:
+		var need := maxi(1, int(ceil(float(FAMILY_SETTLE_ROMANCE - rom) / 6.0)))
+		return "再選約 %d 次戀愛類，可能把心推進到能成家的位置。" % need
+	var early := maxi(1, int(ceil(float(FAMILY_ROMANCE_MIN - rom) / 6.0)))
+	return "再選約 %d 次散步、信件或一起做飯，戀愛會再近一點。" % early
+
+
+static func settle_outcome(act_id: String) -> String:
+	match act_id:
+		"family_meet":
+			return "帶回家吃頓飯：結局多寫家裡的那頓飯。手帳會改成成家。不改平日工作，也不改五條屬性。"
+		"family_nest":
+			return "布置以後的小房間：結局提到那盞燈。手帳會改成成家。不改工作。"
+		"family_talk":
+			return "談以後怎麼過日子：結局用這一句。家計不變。手帳會改成成家，不改工作。"
+		_:
+			return "成家會寫進結局的一句，也會改手帳上的那一行。不改工作，也不改五條屬性。"
+
+
+static func settle_aside(act_id: String) -> String:
+	match act_id:
+		"family_meet":
+			return "結局裡成家的那一句，寫的是帶回家的那頓飯。"
+		"family_nest":
+			return "結局裡成家的那一句，寫的是以後的小房間。"
+		"family_talk":
+			return "結局裡成家的那一句，寫的是談以後怎麼過日子。"
+		_:
+			return ""
+
+
 static func note_activity(state, activity_id: String) -> void:
 	if not is_adult(state):
 		return
@@ -453,9 +519,13 @@ static func note_activity(state, activity_id: String) -> void:
 	var fam := int(def.get("family", 0))
 	if fam <= 0 or int(state.romance) < FAMILY_ROMANCE_MIN:
 		return
+	state.flags["family_last_act"] = activity_id
+	var was_settled := bool(state.family_settled)
 	state.family_prep = int(state.family_prep) + fam
 	if int(state.family_prep) >= FAMILY_SETTLE_PREP and int(state.romance) >= FAMILY_SETTLE_ROMANCE:
 		state.family_settled = true
+		if not was_settled:
+			state.flags["family_ritual_pending"] = true
 
 
 static func career_bonus(ending_id: String, state) -> int:
@@ -493,4 +563,8 @@ static func life_aside(state) -> String:
 	var edu := education_ending_flavor(state)
 	if edu != "":
 		bits.append(edu)
+	if bool(state.family_settled):
+		var aside := settle_aside(str(state.flags.get("family_last_act", "")))
+		if aside != "":
+			bits.append(aside)
 	return "".join(bits)

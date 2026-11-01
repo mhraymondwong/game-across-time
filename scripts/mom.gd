@@ -11,7 +11,8 @@ const PIN_PATH := "res://assets/family/mom_fullbody_cutout.png"
 const PORTRAIT_PATH := "res://assets/family/mom_bust_cutout.png"
 const FAMILY_PHOTO_PATH := "res://assets/family/family_photo_child.jpg"
 ## 25–35% per season; the roll flag makes it once per season.
-const APPEAR_CHANCE := 0.30
+## Kept near the top of that band so mom / trio lines have a little more room.
+const APPEAR_CHANCE := 0.34
 
 const FAMILY_BIO := "她是這個家的人。會煮飯、會補外套，也會在你排太滿的時候，輕聲說慢一點。"
 

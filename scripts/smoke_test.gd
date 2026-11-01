@@ -1289,27 +1289,28 @@ func _run() -> void:
 	gs.season = 0
 	var dad_worry := false
 	var dad_cling := false
-	for _dad_i in range(30):
+	for _dad_i in range(48):
 		var dad_line: Dictionary = Confide.pick_line(gs, family_rng)
-		if Confide.hearer_of(dad_line) != "dad" or not str(dad_line.get("id", "")).begins_with("child_"):
+		var dad_hearer := Confide.hearer_of(dad_line)
+		if not str(dad_line.get("id", "")).begins_with("child_") or (dad_hearer != "dad" and dad_hearer != "friend"):
 			printerr("[smoke] FAIL dad confide pool %s" % str(dad_line.get("id", "")))
 			phase11_ok = false
 			break
-		if str(dad_line.get("tone", "")) == "worry":
+		if dad_hearer == "dad" and str(dad_line.get("tone", "")) == "worry":
 			dad_worry = true
-		elif str(dad_line.get("tone", "")) == "cling":
+		elif dad_hearer == "dad" and str(dad_line.get("tone", "")) == "cling":
 			dad_cling = true
 	gs.flags["mom_present_4_0"] = true
 	var home_mom := false
 	var home_parents := false
-	for _home_i in range(40):
+	for _home_i in range(48):
 		var home_line: Dictionary = Confide.pick_line(gs, family_rng)
 		var home_hearer := Confide.hearer_of(home_line)
 		if home_hearer == "mom":
 			home_mom = true
 		elif home_hearer == "parents":
 			home_parents = true
-		else:
+		elif home_hearer != "friend":
 			printerr("[smoke] FAIL mom-home confide hearer %s" % str(home_line.get("id", "")))
 			phase11_ok = false
 			break

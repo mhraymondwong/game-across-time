@@ -21,7 +21,7 @@ const DESTINATIONS: Array = [
 		"title": "中國・家附近的遠方",
 		"place": "中國",
 		"min_year": 1,
-		"cost": 1800,
+		"cost": 1600,
 		"with_mom": true,
 		"thumb": THUMB_CHINA,
 		"blurb": "坐火車就到的城。老街、江風，和一碗熱湯。",
@@ -35,7 +35,7 @@ const DESTINATIONS: Array = [
 		"title": "日本・短途的海",
 		"place": "日本",
 		"min_year": 7,
-		"cost": 4200,
+		"cost": 4000,
 		"with_mom": true,
 		"thumb": THUMB_JAPAN,
 		"blurb": "電車、石階、便利商店的熱茶。",
@@ -49,7 +49,7 @@ const DESTINATIONS: Array = [
 		"title": "亞洲・更遠的街",
 		"place": "亞洲",
 		"min_year": 10,
-		"cost": 5400,
+		"cost": 5100,
 		"with_mom": true,
 		"thumb": THUMB_ASIA,
 		"blurb": "另一座城市的夜市與海風。",
@@ -63,7 +63,7 @@ const DESTINATIONS: Array = [
 		"title": "歐洲・很長的一天",
 		"place": "歐洲",
 		"min_year": 10,
-		"cost": 7600,
+		"cost": 7200,
 		"with_mom": true,
 		"thumb": THUMB_EUROPE,
 		"blurb": "很長的飛行，很短的散步。石頭路與麵包香。",
@@ -77,7 +77,7 @@ const DESTINATIONS: Array = [
 		"title": "澳洲・相反的季節",
 		"place": "澳洲",
 		"min_year": 10,
-		"cost": 6800,
+		"cost": 6400,
 		"with_mom": true,
 		"thumb": THUMB_AUSTRALIA,
 		"blurb": "季節是反的。天很寬，風走很遠也不累。",
@@ -149,7 +149,7 @@ static func unlocked_ids(state) -> Array:
 	return out
 
 
-static func lock_reason(dest: Dictionary, state) -> String:
+static func year_lock(dest: Dictionary, state) -> String:
 	if dest.is_empty():
 		return "先選一個地方。"
 	var min_year := int(dest.get("min_year", 1))
@@ -158,9 +158,81 @@ static func lock_reason(dest: Dictionary, state) -> String:
 		if hint != "":
 			return hint
 		return "還沒到能去的年紀。"
+	return ""
+
+
+static func lock_reason(dest: Dictionary, state) -> String:
+	var age := year_lock(dest, state)
+	if age != "":
+		return age
 	var cost := int(dest.get("cost", 0))
 	if int(state.cash) < cost:
 		return "家計不足（需要 $%d）" % cost
+	return ""
+
+
+## Full price stays the default so older depart calls and saves keep the same charge.
+## Kin / volunteer / installment are optional and chosen on the travel page.
+static func quote(state, dest: Dictionary, mode: String = "full") -> Dictionary:
+	var base := int(dest.get("cost", 0))
+	var cost := base
+	var debt := 0
+	var note := ""
+	var picked := mode
+	match mode:
+		"kin":
+			var cut := maxi(int(round(float(base) * 0.12)), 200)
+			cost = maxi(base - cut, 0)
+			note = "親屬贊助：媽媽補上旅費的一小截。"
+		"volunteer":
+			var cut2 := maxi(int(round(float(base) * 0.08)), 120)
+			cost = maxi(base - cut2, 0)
+			note = "義工折抵：社區的好，換成旅費裡的一點。"
+		"installment":
+			cost = int(ceil(float(base) / 2.0))
+			debt = base - cost
+			note = "分期：先付一半，剩下的幾季慢慢還。"
+		_:
+			picked = "full"
+	return {"mode": picked, "base": base, "cost": cost, "debt": debt, "note": note}
+
+
+static func modes_for(state, dest: Dictionary) -> Array:
+	var out: Array = ["full"]
+	if int(state.flags.get("mom_warmth", 70)) >= 55:
+		out.append("kin")
+	if int(state.morals) >= 40:
+		out.append("volunteer")
+	var base := int(dest.get("cost", 0))
+	var half := int(ceil(float(base) / 2.0))
+	if int(state.cash) >= half and int(state.cash) < base:
+		out.append("installment")
+	return out
+
+
+static func afford_line(state, cost: int) -> String:
+	var cash := int(state.cash)
+	if cash >= cost:
+		return "以現在的家計，這趟去得成。"
+	var gap := cost - cash
+	var surplus := 0
+	if typeof(state.last_deltas) == TYPE_DICTIONARY:
+		surplus = int(state.last_deltas.get("cash", 0))
+	if surplus <= 80:
+		return "還差 $%d。最近一季結餘不多，可以先選短途，或看看分期與折抵。" % gap
+	var seasons := maxi(1, int(ceil(float(gap) / float(surplus))))
+	return "還差 $%d。以目前一季結餘，約需 %d 季。" % [gap, seasons]
+
+
+static func pay_block(state, dest: Dictionary, mode: String) -> String:
+	var age := year_lock(dest, state)
+	if age != "":
+		return age
+	if not modes_for(state, dest).has(mode):
+		mode = "full"
+	var q := quote(state, dest, mode)
+	if int(state.cash) < int(q.get("cost", 0)):
+		return "家計不足（需要 $%d）" % int(q.get("cost", 0))
 	return ""
 
 
@@ -207,16 +279,22 @@ static func skip_window(state) -> bool:
 
 
 ## Deduct cash, apply stats, append an album page, close the window.
-static func depart(state, dest_id: String) -> Dictionary:
+static func depart(state, dest_id: String, pay_mode: String = "full") -> Dictionary:
 	if not window_open(state):
 		return {"ok": false, "reason": "這趟旅行的窗口已經過去了。"}
 	var dest := get_dest(dest_id)
-	var why := lock_reason(dest, state)
+	if not modes_for(state, dest).has(pay_mode):
+		pay_mode = "full"
+	var why := pay_block(state, dest, pay_mode)
 	if why != "":
 		return {"ok": false, "reason": why}
+	var q := quote(state, dest, pay_mode)
 	var y := int(state.year)
 	var season_now := int(state.season)
-	var cost := int(dest.get("cost", 0))
+	var cost := int(q.get("cost", 0))
+	var debt := int(q.get("debt", 0))
+	if debt > 0:
+		state.flags["travel_debt"] = int(state.flags.get("travel_debt", 0)) + debt
 	var deltas: Dictionary = {}
 	var raw = dest.get("deltas", {})
 	if typeof(raw) == TYPE_DICTIONARY:
@@ -247,6 +325,7 @@ static func depart(state, dest_id: String) -> Dictionary:
 		"scene": scene_for(dest_id),
 		"deltas": deltas,
 		"cost": cost,
+		"pay_note": str(q.get("note", "")),
 		"place": str(dest.get("place", "")),
 		"with_mom": bool(dest.get("with_mom", false)),
 		"when": went,

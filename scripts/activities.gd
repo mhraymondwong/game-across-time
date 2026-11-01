@@ -391,6 +391,42 @@ static func all() -> Dictionary:
 			"max_year": 12,
 			"unlock_hint": "國中以後可以排程式興趣班",
 		},
+		"taste_piano": {
+			"name": "專長體驗・鋼琴",
+			"category": "學習",
+			"desc": "國中第一年的短課。幾乎不耗體力，會在專長頁寫下鋼琴的第一筆。",
+			"effects": {"stamina": 1, "charm": 1, "academia": 1, "social": 0, "morals": 0},
+			"cash": 0,
+			"mood": 2,
+			"intensity": 0,
+			"min_year": 7,
+			"max_year": 7,
+			"unlock_hint": "國中第一年可以體驗一次鋼琴",
+		},
+		"taste_language": {
+			"name": "專長體驗・外語",
+			"category": "學習",
+			"desc": "國中第一年的短課。念一小段對話，幾乎不耗體力，會寫下外語的第一筆。",
+			"effects": {"stamina": 1, "academia": 1, "charm": 0, "social": 1, "morals": 0},
+			"cash": 0,
+			"mood": 2,
+			"intensity": 0,
+			"min_year": 7,
+			"max_year": 7,
+			"unlock_hint": "國中第一年可以體驗一次外語",
+		},
+		"taste_code": {
+			"name": "專長體驗・程式",
+			"category": "學習",
+			"desc": "國中第一年的短課。讓一行字跑起來，幾乎不耗體力，會寫下程式的第一筆。",
+			"effects": {"stamina": 1, "academia": 1, "morals": 1, "social": 0, "charm": 0},
+			"cash": 0,
+			"mood": 2,
+			"intensity": 0,
+			"min_year": 7,
+			"max_year": 7,
+			"unlock_hint": "國中第一年可以體驗一次程式",
+		},
 		"talent_showcase": {
 			"name": "高年級才藝發表",
 			"category": "氣質",
@@ -593,6 +629,9 @@ static func shown_in_picker(id: String, state: Node) -> bool:
 		return false
 	if def.has("max_year") and int(state.year) > int(def["max_year"]):
 		return false
+	if str(id).begins_with("taste_"):
+		if int(state.year) != 7 or bool(state.flags.get("specialty_taste_done", false)):
+			return false
 	return true
 
 
@@ -726,10 +765,174 @@ static func availability(id: String, state: Node) -> Dictionary:
 	# Soft cash: cannot afford a costing activity
 	var cash_d := int(def.get("cash", 0))
 	if cash_d < 0 and int(state.cash) + cash_d < 0:
-		return {"ok": false, "reason": "家計不足"}
+		var gap := -(int(state.cash) + cash_d)
+		return {"ok": false, "reason": "家計還差 $%d" % gap}
 
 	return {"ok": true, "reason": ""}
 
 
 static func is_available(id: String, state: Node) -> bool:
 	return bool(availability(id, state).get("ok", false))
+
+
+const FILTERS: PackedStringArray = ["全部", "免費", "回體", "賺錢", "專長", "低體力"]
+const RECOVERY_TIP := "結算時的季節小事，有時會把體力補回來。年終也會緩一點。"
+
+
+static func filter_tags(id: String) -> PackedStringArray:
+	var def := get_activity(id)
+	var tags: PackedStringArray = []
+	if def.is_empty():
+		return tags
+	var cash_d := int(def.get("cash", 0))
+	if cash_d == 0:
+		tags.append("免費")
+	if cash_d > 0:
+		tags.append("賺錢")
+	var effects: Dictionary = def.get("effects", {})
+	var stam := int(effects.get("stamina", 0))
+	if stam > 0:
+		tags.append("回體")
+	if intensity_of(def) == 0 and stam >= -2:
+		tags.append("低體力")
+	if not GrowthPath.skill_gains_of(id).is_empty():
+		tags.append("專長")
+	return tags
+
+
+static func shortfall_text(id: String, state: Node) -> String:
+	var def := get_activity(id)
+	if def.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	var cash_d := int(def.get("cash", 0))
+	if cash_d < 0 and int(state.cash) + cash_d < 0:
+		parts.append("家計還差 $%d" % (-(int(state.cash) + cash_d)))
+	if def.has("min_stamina") and int(state.stamina) < int(def["min_stamina"]):
+		parts.append("體力還差 %d" % (int(def["min_stamina"]) - int(state.stamina)))
+	return "、".join(parts)
+
+
+static func effect_blurb(id: String) -> String:
+	var def := get_activity(id)
+	if def.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	var effects: Dictionary = def.get("effects", {})
+	for pair in [["stamina", "體力"], ["academia", "學識"], ["charm", "魅力"], ["morals", "道德"], ["social", "人際"]]:
+		var v := int(effects.get(pair[0], 0))
+		if v == 0:
+			continue
+		parts.append("%s%s%d" % [pair[1], "＋" if v > 0 else "－", abs(v)])
+	var cash_d := int(def.get("cash", 0))
+	if cash_d > 0:
+		parts.append("家計＋$%d" % cash_d)
+	elif cash_d < 0:
+		parts.append("家計－$%d" % abs(cash_d))
+	var rom := int(def.get("romance", 0))
+	if rom > 0:
+		parts.append("戀愛＋%d" % rom)
+	if int(def.get("family", 0)) > 0:
+		parts.append("成家＋1")
+	return "　".join(parts)
+
+
+static func diary_note(id: String) -> String:
+	match id:
+		"family_meet":
+			return "帶回家吃飯：結局多一句家裡的飯。手帳改成成家。不改工作，也不改五條屬性。"
+		"family_nest":
+			return "布置小房間：結局提到那盞燈。手帳改成成家。不改工作。"
+		"family_talk":
+			return "談以後：結局用這一句。家計不變。手帳改成成家，不改工作。"
+		"date_walk", "date_letter", "date_cook":
+			return "這一筆會推進戀愛。結局會讀到這段靠近，不改五條屬性。"
+		"study_night":
+			return "夜間進修會把外語寫進第二項專長。結局若讀專長，這一筆算數。"
+		"study_license":
+			return "證照會把演講寫進專長。結局若讀專長，這一筆算數。"
+		"study_portfolio":
+			return "作品集會把繪畫寫深一點。結局若讀專長，這一筆算數。"
+		_:
+			if not GrowthPath.skill_gains_of(id).is_empty():
+				return "這一筆會寫進專長頁。結局可能輕輕提到。"
+			return ""
+
+
+static func feeds_ending(id: String) -> bool:
+	return diary_note(id) != ""
+
+
+static func badge_for(id: String, state: Node) -> String:
+	if not GrowthPath.unlocked(state):
+		if int(state.stamina) <= ScheduleAssist.LOW_STAMINA and id in ["rest_sleep", "rest_park", "virtue_chores", "family_bento"]:
+			return "可負擔"
+		return ""
+	if GrowthPath.all_skills_empty(state) and id in ["taste_piano", "taste_language", "taste_code", "study_piano", "study_language", "study_code"]:
+		if int(state.stamina) <= ScheduleAssist.LOW_STAMINA and (str(id).begins_with("taste_") or id in ["study_library"]):
+			return "入門・可負擔"
+		return "入門"
+	if GrowthPath.second_skill_ids(state).has(id):
+		return "第二專長"
+	if int(state.stamina) <= ScheduleAssist.LOW_STAMINA and id in ["rest_sleep", "rest_park", "virtue_chores", "family_bento", "health_clinic", "virtue_elder"]:
+		return "可負擔"
+	return ""
+
+
+static func _ease_score(id: String, state: Node) -> int:
+	var def := get_activity(id)
+	var effects: Dictionary = def.get("effects", {})
+	var stam := int(effects.get("stamina", 0))
+	var score := stam * 4
+	var cash_d := int(def.get("cash", 0))
+	if cash_d > 0:
+		score += 6
+	elif cash_d == 0:
+		score += 10
+	else:
+		score -= mini(12, abs(cash_d) / 100)
+	if intensity_of(def) == 0:
+		score += 8
+	if int(state.stamina) <= ScheduleAssist.LOW_STAMINA and stam > 0:
+		score += 12
+	return score
+
+
+## Picker rows, affordable and pinned items first when resources are tight.
+static func list_rows(state: Node, tag: String, only_ok: bool) -> Array:
+	var rows: Array = []
+	var tight := int(state.stamina) < 35 or int(state.cash) < 2000
+	var index := 0
+	var grouped := ids_by_category_for(state)
+	for cat in grouped:
+		for id in grouped[cat]:
+			if tag != "" and tag != "全部" and not filter_tags(id).has(tag):
+				continue
+			var avail := availability(id, state)
+			var ok := bool(avail.get("ok", false))
+			if only_ok and not ok:
+				continue
+			rows.append({
+				"id": id,
+				"category": cat,
+				"ok": ok,
+				"reason": str(avail.get("reason", "")),
+				"badge": badge_for(id, state),
+				"ease": _ease_score(id, state),
+				"index": index,
+			})
+			index += 1
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var a_ok := bool(a.get("ok", false))
+		var b_ok := bool(b.get("ok", false))
+		if a_ok != b_ok:
+			return a_ok
+		var a_pin := str(a.get("badge", "")) != ""
+		var b_pin := str(b.get("badge", "")) != ""
+		if a_pin != b_pin:
+			return a_pin
+		if tight and int(a.get("ease", 0)) != int(b.get("ease", 0)):
+			return int(a.get("ease", 0)) > int(b.get("ease", 0))
+		return int(a.get("index", 0)) < int(b.get("index", 0))
+	)
+	return rows
