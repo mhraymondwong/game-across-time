@@ -38,6 +38,9 @@ const ACTIVITY_GAINS: Dictionary = {
 	"study_code": {"skills": {"code": 2}, "tags": {"stem": 2}},
 	"study_arts": {"skills": {"paint": 1, "piano": 1}, "tags": {"art": 2}},
 	"talent_showcase": {"skills": {"paint": 1, "piano": 1, "speech": 1}, "tags": {"art": 2}},
+	"taste_piano": {"skills": {"piano": 1}, "tags": {"art": 1}},
+	"taste_language": {"skills": {"language": 1}, "tags": {"letters": 1}},
+	"taste_code": {"skills": {"code": 1}, "tags": {"stem": 1}},
 	"style_perform": {"skills": {"speech": 1}, "tags": {"art": 1}},
 	"style_fashion": {"skills": {}, "tags": {"art": 1, "business": 1}},
 	"study_library": {"skills": {"language": 1}, "tags": {"letters": 1}},
@@ -54,15 +57,15 @@ const ACTIVITY_GAINS: Dictionary = {
 	"work_cafe": {"skills": {"cook": 1}, "tags": {"business": 2}},
 	"work_store": {"skills": {}, "tags": {"business": 2}},
 	"virtue_volunteer": {"skills": {}, "tags": {"service": 2}},
-	"virtue_elder": {"skills": {}, "tags": {"service": 2, "letters": 1}},
+	"virtue_elder": {"skills": {"speech": 1}, "tags": {"service": 2, "letters": 1}},
 	"virtue_recycle": {"skills": {}, "tags": {"service": 1}},
 	"clinic_helper": {"skills": {}, "tags": {"service": 2, "stem": 1}},
 	"health_clinic": {"skills": {}, "tags": {"service": 1, "stem": 1}},
 	"festival_helper": {"skills": {}, "tags": {"service": 1, "art": 1}},
-	"school_class_helper": {"skills": {}, "tags": {"service": 1, "letters": 1}},
+	"school_class_helper": {"skills": {"speech": 1}, "tags": {"service": 1, "letters": 1}},
 	"date_cook": {"skills": {"cook": 1}, "tags": {"service": 1}},
-	"study_night": {"skills": {}, "tags": {"stem": 1, "letters": 1}},
-	"study_license": {"skills": {}, "tags": {"stem": 1, "letters": 1}},
+	"study_night": {"skills": {"language": 1}, "tags": {"stem": 1, "letters": 1}},
+	"study_license": {"skills": {"speech": 1}, "tags": {"stem": 1, "letters": 1}},
 	"study_portfolio": {"skills": {"paint": 1}, "tags": {"art": 2}},
 	"work_colleagues": {"skills": {}, "tags": {"service": 1}},
 	"work_side": {"skills": {}, "tags": {"business": 1, "art": 1}},
@@ -159,8 +162,71 @@ static func ranked_tags(state) -> Array:
 	return rows
 
 
+static func skill_gains_of(activity_id: String) -> Dictionary:
+	var spec: Dictionary = ACTIVITY_GAINS.get(activity_id, {})
+	var skills: Dictionary = spec.get("skills", {})
+	return skills if typeof(skills) == TYPE_DICTIONARY else {}
+
+
+static func learned_count(state) -> int:
+	var n := 0
+	for row in SKILLS:
+		if level_of(state, str(row.get("id", ""))) > 0:
+			n += 1
+	return n
+
+
+static func all_skills_empty(state) -> bool:
+	return learned_count(state) == 0
+
+
+static func months_to_first(state, skill_id: String) -> int:
+	var need := LEVEL_XP[1] - xp_of(state, skill_id)
+	if need <= 0:
+		return 0
+	var best := 1
+	for activity_id in ACTIVITY_GAINS:
+		var gain := int(skill_gains_of(str(activity_id)).get(skill_id, 0))
+		if gain > best:
+			best = gain
+	return int(ceil(float(need) / float(best)))
+
+
+## Low-cost months that can write a skill the chores path has not touched yet.
+static func second_skill_ids(state) -> Array:
+	if not unlocked(state):
+		return []
+	var known := {}
+	var learned := 0
+	for row in SKILLS:
+		var sid := str(row.get("id", ""))
+		if level_of(state, sid) > 0:
+			known[sid] = true
+			learned += 1
+	if learned == 0 or learned >= 2:
+		return []
+	var options: Array = [
+		["virtue_elder", "speech"],
+		["school_class_helper", "speech"],
+		["study_library", "language"],
+		["social_club", "ball"],
+		["virtue_chores", "cook"],
+		["family_bento", "cook"],
+		["park_run", "ball"],
+	]
+	var out: Array = []
+	for pair in options:
+		if known.has(str(pair[1])):
+			continue
+		if not out.has(pair[0]):
+			out.append(pair[0])
+	return out
+
+
 static func grant(state, activity_id: String) -> void:
 	if not unlocked(state):
+		return
+	if str(activity_id).begins_with("taste_") and bool(state.flags.get("specialty_taste_done", false)):
 		return
 	var spec: Dictionary = ACTIVITY_GAINS.get(activity_id, {})
 	if spec.is_empty():
@@ -177,6 +243,8 @@ static func grant(state, activity_id: String) -> void:
 		if not is_tag(tkey):
 			continue
 		state.interest_points[tkey] = int(state.interest_points.get(tkey, 0)) + int(tags[tid])
+	if str(activity_id).begins_with("taste_"):
+		state.flags["specialty_taste_done"] = true
 
 
 static func ending_bonus(ending_id: String, state) -> int:
@@ -222,7 +290,7 @@ static func drawer_line(state) -> String:
 	if ranked.size() > 0 and int(ranked[0].get("points", 0)) > 0:
 		tag_bit = "%s %d" % [str(ranked[0].get("name", "")), int(ranked[0].get("points", 0))]
 	if best_level <= 0 and tag_bit == "":
-		return "專長頁還是空白的。排一個相關的月份，就會寫上。"
+		return "專長頁還是空白的。再排 1 個相關月，可寫入第一筆。"
 	if best_level <= 0:
 		return "興趣　%s" % tag_bit
 	var skill_bit := "%s　%s" % [skill_name(best_id), level_name(best_level)]
@@ -235,8 +303,27 @@ static func skill_lines(state) -> PackedStringArray:
 	var lines: PackedStringArray = []
 	for row in SKILLS:
 		var sid := str(row.get("id", ""))
-		lines.append("%s　　%s" % [str(row.get("name", "")), level_name(level_of(state, sid))])
+		var lv := level_of(state, sid)
+		if lv <= 0:
+			lines.append("%s　　未學　·　再排 %d 個月可寫入第一筆" % [str(row.get("name", "")), months_to_first(state, sid)])
+		else:
+			lines.append("%s　　%s" % [str(row.get("name", "")), level_name(lv)])
 	return lines
+
+
+static func page_hint(state) -> String:
+	if not unlocked(state):
+		return ""
+	if all_skills_empty(state):
+		return "七項都還沒寫上。再排 1 個相關月，可寫入第一筆。國中第一年可以先體驗鋼琴、外語或程式。"
+	if learned_count(state) == 1:
+		return "已經有一項了。陪伴長輩、班務小幫手幾乎不花錢，可以寫上第二項，不必六項一直未學。"
+	if GameConfig.is_adult_year(int(state.year)):
+		return "夜間進修寫外語（%s・經驗 %d）。證照寫演講（%s・經驗 %d）。" % [
+			level_name(level_of(state, "language")), xp_of(state, "language"),
+			level_name(level_of(state, "speech")), xp_of(state, "speech"),
+		]
+	return ""
 
 
 static func tag_line(state) -> String:

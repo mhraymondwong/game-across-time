@@ -69,6 +69,10 @@ const CONFIDE_THEMES := {
 	"adult_cling_dinner": "family",
 	"adult_cling_quiet": "home",
 	"adult_cling_table": "family",
+	"child_worry_friend": "school",
+	"teen_worry_skill": "school",
+	"teen_worry_homework": "home",
+	"adult_worry_colleague": "work",
 }
 
 const LINE_KEYS: Array = [

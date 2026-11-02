@@ -194,18 +194,46 @@ func _ready() -> void:
 		UiStyle.apply_label(aff_lbl, 15)
 		v.add_child(aff_lbl)
 
+	var feed_bits: PackedStringArray = []
+	for vig in GameState.last_vignettes:
+		if typeof(vig) != TYPE_DICTIONARY:
+			continue
+		var feed := Activities.diary_note(str(vig.get("activity_id", "")))
+		if feed != "" and not feed_bits.has(feed):
+			feed_bits.append(feed)
+	if not feed_bits.is_empty():
+		var feed_lbl := Label.new()
+		feed_lbl.text = "手帳會記得：%s" % feed_bits[0]
+		feed_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(feed_lbl, 14, false)
+		v.add_child(feed_lbl)
+	if int(d.get("travel_debt_paid", 0)) > 0:
+		var debt_lbl := Label.new()
+		debt_lbl.text = "遠行分期還了 $%d。" % int(d.get("travel_debt_paid", 0))
+		debt_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(debt_lbl, 14, true)
+		v.add_child(debt_lbl)
+
 	var tail := Control.new()
 	tail.custom_minimum_size = Vector2(0, 4)
 	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(tail)
 
 	# Sticky footer: always on the card, never inside the scroller.
+	var footer := VBoxContainer.new()
+	footer.add_theme_constant_override("separation", 4)
+	column.add_child(footer)
+	var footer_hint := Label.new()
+	footer_hint.text = "日記可以往下捲。繼續留在這一行。"
+	footer_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(footer_hint, 12, true)
+	footer.add_child(footer_hint)
 	_cont = Button.new()
 	_cont.name = "SeasonContinue"
 	_cont.text = "繼續"
 	UiStyle.apply_button(_cont, true)
 	_cont.pressed.connect(_on_continue)
-	column.add_child(_cont)
+	footer.add_child(_cont)
 
 	# Labels stop wheel and touch, so the scroller never sees them.
 	_ignore_pointer(_body)
@@ -468,6 +496,7 @@ func _dismiss_media() -> void:
 
 
 func _dismiss_vignette() -> void:
+	GameState.flags["vignette_full_seen"] = true
 	if _vignette_layer:
 		_vignette_layer.visible = false
 	_showing_vignette = false
@@ -544,12 +573,30 @@ func _build_vignette_layer() -> void:
 				continue
 			list.add_child(_vignette_card(vignettes[i], false))
 
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	outer.add_child(actions)
+	var seen := bool(GameState.flags.get("vignette_full_seen", false))
+	if seen:
+		var skip := Button.new()
+		skip.text = "略過已讀"
+		UiStyle.apply_button(skip, false)
+		skip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		skip.pressed.connect(_dismiss_vignette)
+		actions.add_child(skip)
+		var fast := Button.new()
+		fast.text = "快轉到結算"
+		UiStyle.apply_button(fast, false)
+		fast.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fast.pressed.connect(_dismiss_vignette)
+		actions.add_child(fast)
 	var next := Button.new()
 	next.name = "VignetteContinue"
 	next.text = "翻開結算 ♡"
 	UiStyle.apply_button(next, true)
+	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	next.pressed.connect(_dismiss_vignette)
-	outer.add_child(next)
+	actions.add_child(next)
 
 
 func _vignette_card(v: Dictionary, highlighted: bool) -> PanelContainer:

@@ -1,7 +1,8 @@
 class_name Confide
 extends RefCounted
 ## 她偶爾說一句。傾訴心事，或撒個嗲。
-## 媽媽不在：對爸爸說。媽媽在家：對媽媽說，或對兩個人一起說。
+## 媽媽不在：對爸爸，或對朋友。媽媽在家：對媽媽、對兩個人，或對朋友。
+## 國中以後，撒嬌（抱抱）的權重會降下來。同一構圖不連著出現。
 ## 每季最多一次。答過的下一季先歇著。教學沒關、媽媽這季已幫忙、
 ## 升學還沒寫、成年工作卡還沒關，都不出現。
 ## 旗標都放在 GameState.flags，隨存檔走。
@@ -807,6 +808,94 @@ const LINES: Array = [
 			},
 		],
 	},
+	{
+		"id": "child_worry_friend",
+		"band": "child",
+		"tone": "worry",
+		"hearer": "friend",
+		"kicker": "同學",
+		"body": "%s把便條摺得很小：「同學今天問我要不要一組。上次那個位子的事，我還是會想。」",
+		"options": [
+			{
+				"label": "你想坐就坐",
+				"reply": "你說，想一起就一起，不想也沒關係。她把便條放進鉛筆盒。",
+				"deltas": {"mood": 3, "social": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "我們先聽她怎麼說",
+				"reply": "她點頭。隔天把同學的話帶回來，聲音比昨天穩。",
+				"deltas": {"social": 2, "morals": 1},
+				"warmth": 0,
+			},
+		],
+	},
+	{
+		"id": "teen_worry_skill",
+		"band": "teen",
+		"tone": "worry",
+		"hearer": "friend",
+		"kicker": "專長",
+		"body": "%s看著自己的手指：「同學都有在學的東西。我的專長頁還是空的，不知道要先碰哪一項。」",
+		"options": [
+			{
+				"label": "先碰一項就好",
+				"reply": "你說不用一次學完。她挑了最不費力氣的那一項，寫進下個月。",
+				"deltas": {"mood": 3, "morals": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "空白也還來得及",
+				"reply": "她吐了一口氣，說那這個月先不當成失敗。",
+				"deltas": {"mood": 2, "social": 1},
+				"warmth": 0,
+			},
+		],
+	},
+	{
+		"id": "teen_worry_homework",
+		"band": "teen",
+		"tone": "worry",
+		"hearer": "friend",
+		"kicker": "功課",
+		"body": "%s把作業捲起來：「不是要你幫我寫。是想跟朋友說，這週的功課讓我睡不好。」",
+		"options": [
+			{
+				"label": "先睡，明天再寫一頁",
+				"reply": "她把燈調暗。隔天只寫了一頁，可是眼睛清醒了。",
+				"deltas": {"stamina": 2, "mood": 2},
+				"warmth": 1,
+			},
+			{
+				"label": "我們一起看哪一題",
+				"reply": "你沒有代寫。只是坐在旁邊，她自己把那題讀完。",
+				"deltas": {"mood": 2, "morals": 1},
+				"warmth": 0,
+			},
+		],
+	},
+	{
+		"id": "adult_worry_colleague",
+		"band": "adult",
+		"tone": "worry",
+		"hearer": "friend",
+		"kicker": "班表",
+		"body": "%s把工牌轉到背面：「班表這週排得很滿。我想跟同事說一聲，不是跟家裡抱怨。」",
+		"options": [
+			{
+				"label": "說一聲就好",
+				"reply": "她說完就沒有再加。回家時肩膀鬆了一點。",
+				"deltas": {"mood": 3, "social": 1},
+				"warmth": 1,
+			},
+			{
+				"label": "班表可以再調",
+				"reply": "她點頭，說下個月想把晚上留給自己一點。",
+				"deltas": {"mood": 2, "stamina": 1},
+				"warmth": 0,
+			},
+		],
+	},
 ]
 
 
@@ -836,15 +925,39 @@ static func get_line(id: String) -> Dictionary:
 ## 不在家：爸爸。人在家：對媽媽，或對兩個人。
 static func hearer_of(line: Dictionary) -> String:
 	var hearer := str(line.get("hearer", "dad"))
-	if hearer == "mom" or hearer == "parents":
+	if hearer == "mom" or hearer == "parents" or hearer == "friend":
 		return hearer
 	return "dad"
 
 
 static func _allowed_hearers(state) -> Array:
 	if Mom.is_present(state):
-		return ["mom", "parents"]
-	return ["dad"]
+		return ["mom", "parents", "friend"]
+	return ["dad", "friend"]
+
+
+static func _portrait_key(line: Dictionary) -> String:
+	return "%s|%s" % [hearer_of(line), DialogueChrome.theme_for_confide(str(line.get("id", "")))]
+
+
+static func _line_weight(state, line: Dictionary) -> int:
+	var w := 6
+	match hearer_of(line):
+		"mom":
+			w = 16
+		"parents":
+			w = 14
+		"friend":
+			w = 12
+		_:
+			w = 6
+	var tone := str(line.get("tone", ""))
+	if int(state.year) >= GrowthPath.MIDDLE_SCHOOL_YEAR and tone == "cling":
+		w = maxi(1, int(w / 4.0))
+	var lid := str(line.get("id", ""))
+	if int(state.year) >= GrowthPath.MIDDLE_SCHOOL_YEAR and (lid.contains("hug") or lid == "teen_cling_lean"):
+		w = 1
+	return w
 
 
 static func _pool(band: String, tone: String, hearers: Array) -> Array:
@@ -875,21 +988,46 @@ static func chance_for(state) -> float:
 static func pick_line(state, rng: RandomNumberGenerator) -> Dictionary:
 	var band := _band_for(state)
 	var hearers := _allowed_hearers(state)
-	var tone := "worry" if rng.randf() < 0.5 else "cling"
-	var pool := _pool(band, tone, hearers)
-	if pool.is_empty():
-		pool = _pool(band, "cling" if tone == "worry" else "worry", hearers)
+	var pool: Array = []
+	for line in LINES:
+		if str(line.get("band", "")) != band:
+			continue
+		if not hearers.has(hearer_of(line)):
+			continue
+		pool.append(line)
 	if pool.is_empty():
 		return {}
-	var last := str(state.flags.get("confide_last_id", ""))
-	if pool.size() > 1 and last != "":
-		var filtered: Array = []
-		for line in pool:
-			if str(line.get("id", "")) != last:
-				filtered.append(line)
-		if not filtered.is_empty():
-			pool = filtered
-	return pool[rng.randi() % pool.size()]
+	var last_id := str(state.flags.get("confide_last_id", ""))
+	var last_portrait := str(state.flags.get("confide_last_portrait", ""))
+	var filtered: Array = []
+	for line in pool:
+		if pool.size() > 1 and str(line.get("id", "")) == last_id:
+			continue
+		filtered.append(line)
+	if filtered.is_empty():
+		filtered = pool
+	var fresh: Array = []
+	for line2 in filtered:
+		if last_portrait != "" and _portrait_key(line2) == last_portrait:
+			continue
+		fresh.append(line2)
+	if not fresh.is_empty():
+		filtered = fresh
+	var total := 0
+	var weights: Array[int] = []
+	for line3 in filtered:
+		var w := _line_weight(state, line3)
+		weights.append(w)
+		total += w
+	if total <= 0:
+		return filtered[rng.randi() % filtered.size()]
+	var roll := rng.randi() % total
+	var acc := 0
+	for i in range(filtered.size()):
+		acc += weights[i]
+		if roll < acc:
+			return filtered[i]
+	return filtered[filtered.size() - 1]
 
 
 static func present_line(state, line: Dictionary) -> Dictionary:
@@ -952,6 +1090,7 @@ static func offer_for(state, rng: RandomNumberGenerator) -> Dictionary:
 	var picked := str(line.get("id", ""))
 	state.flags["confide_pending_%s" % tag] = picked
 	state.flags["confide_last_id"] = picked
+	state.flags["confide_last_portrait"] = _portrait_key(line)
 	return present_line(state, line)
 
 

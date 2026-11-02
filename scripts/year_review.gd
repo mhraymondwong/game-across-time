@@ -104,9 +104,22 @@ func _ready() -> void:
 	right.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF8FA"), Color("F5A8C0"), 20))
 	h.add_child(right)
 
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 8)
+	right.add_child(column)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+
 	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 12)
-	right.add_child(v)
+	scroll.add_child(v)
 
 	var title := Label.new()
 	title.text = "第 %d 年 · 相簿回顧" % int(review.get("year", 1))
@@ -167,19 +180,26 @@ func _ready() -> void:
 		row.add_child(hl)
 		v.add_child(row)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.custom_minimum_size = Vector2(0, 8)
-	v.add_child(spacer)
+	var footer := VBoxContainer.new()
+	footer.add_theme_constant_override("separation", 6)
+	column.add_child(footer)
+
+	var preview_hint := Label.new()
+	preview_hint.text = "點左邊的照片只是預覽，闔上不會翻年。要進入下一年，請按下面這一顆。"
+	preview_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(preview_hint, 13, true)
+	footer.add_child(preview_hint)
 
 	var cont := Button.new()
+	cont.name = "YearContinue"
 	if GameState.pending_ending_after_review:
 		cont.text = "翻到結局的那一頁 ♡"
 	else:
 		cont.text = "翻到新的一年 ♡"
 	UiStyle.apply_button(cont, true)
 	cont.pressed.connect(_on_continue)
-	v.add_child(cont)
+	footer.add_child(cont)
 
 
 func _polaroid_frame() -> StyleBoxFlat:

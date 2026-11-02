@@ -5,6 +5,7 @@ extends Control
 
 var _body: VBoxContainer
 var _selected_id: String = ""
+var _pay_mode: String = "full"
 var _notice: String = ""
 
 
@@ -109,18 +110,43 @@ func _show_dest() -> void:
 	for d in Travel.destinations():
 		list.add_child(_dest_card(d))
 
+	if _selected_id != "":
+		var chosen := Travel.get_dest(_selected_id)
+		var modes: Array = Travel.modes_for(GameState, chosen)
+		if not modes.has(_pay_mode):
+			_pay_mode = "full"
+		var pay_row := HFlowContainer.new()
+		pay_row.add_theme_constant_override("h_separation", 6)
+		pay_row.add_theme_constant_override("v_separation", 6)
+		_body.add_child(pay_row)
+		for mode in modes:
+			var q: Dictionary = Travel.quote(GameState, chosen, str(mode))
+			var chip := Button.new()
+			chip.text = _pay_label(str(mode), int(q.get("cost", 0)))
+			UiStyle.apply_soft_chip(chip, Color("FFD0E4") if str(mode) == _pay_mode else Color("FFE8F0"))
+			chip.add_theme_font_size_override("font_size", 13)
+			var picked_mode := str(mode)
+			chip.pressed.connect(func() -> void:
+				_pay_mode = picked_mode
+				call_deferred("_show_dest")
+			)
+			pay_row.add_child(chip)
+		var q_now: Dictionary = Travel.quote(GameState, chosen, _pay_mode)
+		if str(q_now.get("note", "")) != "":
+			_add_meta(str(q_now.get("note", "")))
+
 	var confirm := Button.new()
 	var why := ""
 	if _selected_id == "":
 		confirm.text = "先選一個地方"
 		confirm.disabled = true
 	else:
-		why = Travel.lock_reason(Travel.get_dest(_selected_id), GameState)
+		why = Travel.pay_block(GameState, Travel.get_dest(_selected_id), _pay_mode)
 		if why != "":
 			confirm.text = why
 			confirm.disabled = true
 		else:
-			var cost := int(Travel.get_dest(_selected_id).get("cost", 0))
+			var cost := int(Travel.quote(GameState, Travel.get_dest(_selected_id), _pay_mode).get("cost", 0))
 			confirm.text = "確認出發　－$%d" % cost
 			confirm.disabled = false
 	UiStyle.apply_button(confirm, not confirm.disabled)
@@ -132,10 +158,22 @@ func _show_dest() -> void:
 	_body.add_child(_button("今年不去", false, _on_skip))
 
 
+func _pay_label(mode: String, cost: int) -> String:
+	match mode:
+		"kin":
+			return "親屬贊助　$%d" % cost
+		"volunteer":
+			return "義工折抵　$%d" % cost
+		"installment":
+			return "分期先付　$%d" % cost
+		_:
+			return "一次付清　$%d" % cost
+
+
 func _dest_card(dest: Dictionary) -> PanelContainer:
 	var dest_id := str(dest.get("id", ""))
 	var selected := dest_id == _selected_id
-	var reason := Travel.lock_reason(dest, GameState)
+	var reason := Travel.year_lock(dest, GameState)
 	var card := PanelContainer.new()
 	var border := Color("E87898") if selected else Color("F0C0D0")
 	var bg := Color("FFE4EE") if selected else Color("FFF0F6")
@@ -160,7 +198,8 @@ func _dest_card(dest: Dictionary) -> PanelContainer:
 	row.add_child(col)
 
 	var title := Label.new()
-	title.text = "%s　·　$%d" % [str(dest.get("title", "")), int(dest.get("cost", 0))]
+	var short := "短途　" if dest_id == "china" else ""
+	title.text = "%s%s　·　$%d" % [short, str(dest.get("title", "")), int(dest.get("cost", 0))]
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(title, 18)
 	col.add_child(title)
@@ -170,7 +209,7 @@ func _dest_card(dest: Dictionary) -> PanelContainer:
 		blurb.text = reason
 		blurb.add_theme_color_override("font_color", Color("C45A7A"))
 	else:
-		blurb.text = str(dest.get("blurb", ""))
+		blurb.text = "%s\n%s" % [str(dest.get("blurb", "")), Travel.afford_line(GameState, int(dest.get("cost", 0)))]
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(blurb, 14, reason == "")
 	if reason != "":
@@ -226,6 +265,8 @@ func _show_result(res: Dictionary) -> void:
 		_add_meta(delta_line)
 	if bool(res.get("with_mom", false)) and str(res.get("thumb", "")) != "":
 		_add_meta("這張照片裡，有媽媽。")
+	if str(res.get("pay_note", "")) != "":
+		_add_meta(str(res.get("pay_note", "")))
 	_body.add_child(_button("回到手帳 ♡", true, _back))
 
 
@@ -261,7 +302,7 @@ func _on_skip() -> void:
 func _on_confirm() -> void:
 	if _selected_id == "":
 		return
-	var res: Dictionary = Travel.depart(GameState, _selected_id)
+	var res: Dictionary = Travel.depart(GameState, _selected_id, _pay_mode)
 	if not bool(res.get("ok", false)):
 		_notice = str(res.get("reason", "還不能出發。"))
 		call_deferred("_show_dest")
@@ -272,6 +313,7 @@ func _on_confirm() -> void:
 
 func _select_dest(dest_id: String) -> void:
 	_selected_id = dest_id
+	_pay_mode = "full"
 	_notice = ""
 	call_deferred("_show_dest")
 

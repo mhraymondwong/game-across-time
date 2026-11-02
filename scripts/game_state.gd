@@ -19,6 +19,8 @@ var cash: int = 8000
 
 ## Current season schedule: Array of activity id strings length 3 (or empty slots)
 var season_schedule: Array[String] = ["", "", ""]
+## Previous season's three slots. Old saves omit this and stay empty.
+var previous_schedule: Array[String] = ["", "", ""]
 
 ## Last season deltas for result screen
 var last_deltas: Dictionary = {}
@@ -99,6 +101,7 @@ func begin_new_game(given_name: String = "") -> void:
 	mood = int(GameConfig.STARTING_STATS["mood"])
 	cash = GameConfig.STARTING_CASH
 	season_schedule = ["", "", ""]
+	previous_schedule = ["", "", ""]
 	last_deltas = {}
 	last_activity_names = []
 	last_season_event = {}
@@ -203,6 +206,14 @@ func is_season_fully_scheduled() -> bool:
 
 
 func begin_season() -> void:
+	var prev: Array[String] = []
+	var any := false
+	for slot_id in season_schedule:
+		prev.append(str(slot_id))
+		if str(slot_id) != "":
+			any = true
+	if any:
+		previous_schedule = prev
 	season_schedule = ["", "", ""]
 	month_in_season = 0
 	state_changed.emit()
@@ -213,6 +224,8 @@ func apply_activity(activity_id: String) -> Dictionary:
 	var aid := activity_id
 	if aid == "" or not Activities.is_available(aid, self):
 		aid = "rest_sleep"
+	if Activities.feeds_ending(aid):
+		flags["year_ending_feed"] = str(Activities.get_activity(aid).get("name", aid))
 	var def := Activities.get_activity(aid)
 	var delta := {
 		"charm": 0, "morals": 0, "social": 0, "stamina": 0,
@@ -336,6 +349,7 @@ func resolve_season() -> Dictionary:
 	if ev_title != "":
 		note_year_event(ev_title)
 
+	var debt_paid := _collect_travel_debt()
 	var after := get_stats_dict()
 	var totals := {}
 	for k in before:
@@ -349,6 +363,7 @@ func resolve_season() -> Dictionary:
 	totals["job_cash"] = job_cash
 	totals["romance"] = romance
 	totals["family_settled"] = family_settled
+	totals["travel_debt_paid"] = debt_paid
 	last_deltas = totals
 	record_season_memories()
 	season_resolved.emit(totals)
@@ -379,6 +394,7 @@ func snapshot_year_start() -> void:
 	year_start_stats = get_stats_dict()
 	year_activity_names = []
 	year_event_titles = []
+	flags.erase("year_ending_feed")
 
 
 func note_year_event(title: String) -> void:
@@ -439,6 +455,9 @@ func _year_highlights() -> Array:
 		out.append("回憶・%s" % s2)
 		if out.size() >= 6:
 			break
+	var feed := str(flags.get("year_ending_feed", ""))
+	if feed != "" and out.size() < 6:
+		out.append("結局會提到・%s" % feed)
 	var aff_line := TownNpcs.year_highlight(self)
 	if aff_line != "":
 		out.append(aff_line)
@@ -493,6 +512,24 @@ func continue_after_year_review() -> String:
 	return "hub"
 
 
+func _collect_travel_debt() -> int:
+	var debt := int(flags.get("travel_debt", 0))
+	if debt <= 0:
+		return 0
+	var pay := mini(debt, 500)
+	if cash - pay < 200:
+		pay = maxi(0, cash - 200)
+	if pay <= 0:
+		return 0
+	cash -= pay
+	var left := debt - pay
+	if left <= 0:
+		flags.erase("travel_debt")
+	else:
+		flags["travel_debt"] = left
+	return pay
+
+
 func _year_end_touch() -> void:
 	# Mild recovery at year end
 	stamina = _clamp_stat(stamina + 2)
@@ -537,6 +574,9 @@ func to_dict() -> Dictionary:
 	var sched: Array = []
 	for s in season_schedule:
 		sched.append(str(s))
+	var prev_saved: Array = []
+	for prev_id in previous_schedule:
+		prev_saved.append(str(prev_id))
 	var names: Array = []
 	for n in last_activity_names:
 		names.append(str(n))
@@ -553,6 +593,7 @@ func to_dict() -> Dictionary:
 		"mood": mood,
 		"cash": cash,
 		"season_schedule": sched,
+		"previous_schedule": prev_saved,
 		"flags": flags.duplicate(true),
 		"months_played": months_played,
 		"is_game_over": is_game_over,
@@ -597,6 +638,11 @@ func from_dict(d: Dictionary) -> void:
 	if typeof(sched) == TYPE_ARRAY:
 		for i in range(mini(3, sched.size())):
 			season_schedule[i] = str(sched[i])
+	previous_schedule = ["", "", ""]
+	var prev_sched = d.get("previous_schedule", [])
+	if typeof(prev_sched) == TYPE_ARRAY:
+		for j in range(mini(3, prev_sched.size())):
+			previous_schedule[j] = str(prev_sched[j])
 	flags = {}
 	var fl = d.get("flags", {})
 	if typeof(fl) == TYPE_DICTIONARY:

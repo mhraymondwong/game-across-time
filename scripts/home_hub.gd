@@ -2,7 +2,7 @@ extends Control
 ## Layout 2: fullscreen town map + bottom pink scrapbook diary drawer
 ## Full-body daughter mascot spans map ↔ drawer (right side)
 
-const DRAWER_H := 280
+const DRAWER_H := 348
 const DRAWER_COLLAPSED := 48
 const PIN_SIZE := Vector2(72, 84)
 const PIN_LABEL_EXTRA := 22  # name plate below pin icon
@@ -74,6 +74,18 @@ var _sched_title: Label
 var _job_lbl: Label
 var _job_btn: Button
 var _romance_lbl: Label
+var _romance_btn: Button
+var _assist_hint: Label
+var _assist_row: HFlowContainer
+var _repeat_btn: Button
+var _rest_toggle: Button
+var _recover_btn: Button
+var _activity_filter: String = "全部"
+var _affordable_only: bool = false
+var _fill_all_months: bool = false
+var _filter_host: HFlowContainer
+var _activity_hint: Label
+var _note_layer: CanvasLayer
 var _job_popup: PanelContainer
 var _job_list: VBoxContainer
 var _job_note: Label
@@ -139,8 +151,7 @@ func _ready() -> void:
 	_build_layout()
 	_refresh()
 	_maybe_growth_tutorial()
-	_maybe_adult_intro()
-	_maybe_confide()
+	_after_soft_cards()
 	GameState.state_changed.connect(_refresh)
 	resized.connect(_on_resized)
 	call_deferred("_on_resized")
@@ -338,6 +349,31 @@ func _build_layout() -> void:
 		slots_row.add_child(b)
 		_slot_btns.append(b)
 
+	_assist_hint = Label.new()
+	_assist_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_assist_hint.visible = false
+	UiStyle.apply_label(_assist_hint, 12, false)
+	_assist_hint.add_theme_color_override("font_color", Color("C45A7A"))
+	sched.add_child(_assist_hint)
+
+	_assist_row = HFlowContainer.new()
+	_assist_row.add_theme_constant_override("h_separation", 6)
+	_assist_row.add_theme_constant_override("v_separation", 4)
+	sched.add_child(_assist_row)
+
+	_repeat_btn = _assist_chip("套用上季排程", _on_repeat_last)
+	_repeat_btn.tooltip_text = "重複上一季。排完還能改單月。"
+	_assist_row.add_child(_repeat_btn)
+	for preset_key in ScheduleAssist.PRESET_ORDER:
+		var key := str(preset_key)
+		var preset_btn := _assist_chip(ScheduleAssist.preset_label(key), _on_preset.bind(key))
+		_assist_row.add_child(preset_btn)
+	_rest_toggle = _assist_chip("強制休息月", _on_toggle_force_rest)
+	_assist_row.add_child(_rest_toggle)
+	_recover_btn = _assist_chip("看家務與休息", _open_recovery_list)
+	_recover_btn.visible = false
+	_assist_row.add_child(_recover_btn)
+
 	_confirm_btn = Button.new()
 	_confirm_btn.text = "確認本季排程 → 結算"
 	UiStyle.apply_button(_confirm_btn, true)
@@ -396,6 +432,16 @@ func _build_layout() -> void:
 	_romance_lbl.visible = false
 	UiStyle.apply_label(_romance_lbl, 13, true)
 	stats_col.add_child(_romance_lbl)
+
+	_romance_btn = Button.new()
+	_romance_btn.text = "心事"
+	_romance_btn.visible = false
+	_romance_btn.tooltip_text = "戀愛怎麼推進、成家三選會寫進哪一句。"
+	UiStyle.apply_soft_chip(_romance_btn, Color("FFD0E4"))
+	_romance_btn.add_theme_font_size_override("font_size", 13)
+	_romance_btn.custom_minimum_size = Vector2(0, 32)
+	_romance_btn.pressed.connect(_show_romance_page)
+	stats_col.add_child(_romance_btn)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 6)
@@ -715,21 +761,62 @@ func _make_popup_shell(title_text: String) -> PanelContainer:
 	return panel
 
 
+func _assist_chip(text: String, cb: Callable) -> Button:
+	var btn := Button.new()
+	btn.text = text
+	btn.add_theme_font_size_override("font_size", 12)
+	btn.custom_minimum_size = Vector2(0, 28)
+	UiStyle.apply_soft_chip(btn, Color("FFE8F0"))
+	btn.pressed.connect(cb)
+	return btn
+
+
+func _on_repeat_last() -> void:
+	var n := ScheduleAssist.apply_previous(GameState)
+	if n <= 0:
+		_assist_hint.text = "上季還沒有能再用的安排。可以先選一個預設。"
+		_assist_hint.visible = true
+		return
+	_refresh()
+
+
+func _on_preset(key: String) -> void:
+	ScheduleAssist.apply_preset(GameState, key)
+	_refresh()
+
+
+func _on_toggle_force_rest() -> void:
+	ScheduleAssist.toggle_force_rest(GameState)
+
+
+func _open_recovery_list() -> void:
+	_activity_filter = "低體力"
+	_affordable_only = true
+	var first_empty := 0
+	for i in range(GameConfig.MONTHS_PER_SEASON):
+		if str(GameState.season_schedule[i]) == "":
+			first_empty = i
+			break
+	_selected_month = first_empty
+	_refresh_slots_highlight()
+	_show_activity_picker()
+
+
 func _make_activity_popup() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520, 480)
+	panel.custom_minimum_size = Vector2(640, 560)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -260
-	panel.offset_right = 260
-	panel.offset_top = -250
-	panel.offset_bottom = 250
+	panel.offset_left = -330
+	panel.offset_right = 330
+	panel.offset_top = -290
+	panel.offset_bottom = 290
 	panel.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F5B8C8"), 22))
 
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
 
 	_activity_title = Label.new()
@@ -738,9 +825,19 @@ func _make_activity_popup() -> PanelContainer:
 	UiStyle.apply_label(_activity_title, 22)
 	v.add_child(_activity_title)
 
+	_filter_host = HFlowContainer.new()
+	_filter_host.add_theme_constant_override("h_separation", 6)
+	_filter_host.add_theme_constant_override("v_separation", 4)
+	v.add_child(_filter_host)
+
+	_activity_hint = Label.new()
+	_activity_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(_activity_hint, 13, true)
+	v.add_child(_activity_hint)
+
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 360)
+	scroll.custom_minimum_size = Vector2(0, 300)
 	v.add_child(scroll)
 
 	_activity_list = VBoxContainer.new()
@@ -1071,8 +1168,7 @@ func _dismiss_tutorial() -> void:
 		_tutorial_layer = null
 	_position_mom_card()
 	_maybe_growth_tutorial()
-	_maybe_adult_intro()
-	_maybe_confide()
+	_after_soft_cards()
 
 
 func _on_month_slot(i: int) -> void:
@@ -1084,59 +1180,134 @@ func _on_month_slot(i: int) -> void:
 func _show_activity_picker() -> void:
 	_hide_popups()
 	_popup_layer.get_node("Dim").visible = true
-	_activity_title.text = "選擇活動 · %s" % GameConfig.MONTH_LABELS[_selected_month]
+	var month_name := str(GameConfig.MONTH_LABELS[_selected_month])
+	if _fill_all_months:
+		_activity_title.text = "三個月同選 · 從%s開始" % month_name
+	else:
+		_activity_title.text = "選擇活動 · %s" % month_name
+	_rebuild_activity_filters()
 	_rebuild_activity_list()
 	_activity_popup.visible = true
+
+
+func _rebuild_activity_filters() -> void:
+	if _filter_host == null:
+		return
+	for c in _filter_host.get_children():
+		c.queue_free()
+	for tag in Activities.FILTERS:
+		var chip := Button.new()
+		var label := str(tag)
+		chip.text = label
+		chip.add_theme_font_size_override("font_size", 13)
+		UiStyle.apply_soft_chip(chip, Color("FFD0E4") if label == _activity_filter else Color("FFE8F0"))
+		var picked := label
+		chip.pressed.connect(func() -> void:
+			_activity_filter = picked
+			_rebuild_activity_filters()
+			_rebuild_activity_list()
+		)
+		_filter_host.add_child(chip)
+	var only := Button.new()
+	only.text = "顯示僅可選" if not _affordable_only else "顯示全部狀態"
+	only.add_theme_font_size_override("font_size", 13)
+	UiStyle.apply_soft_chip(only, Color("FFD0E4") if _affordable_only else Color("FFE8F0"))
+	only.pressed.connect(func() -> void:
+		_affordable_only = not _affordable_only
+		_rebuild_activity_filters()
+		_rebuild_activity_list()
+	)
+	_filter_host.add_child(only)
+	var batch := Button.new()
+	batch.text = "三個月同選：開" if _fill_all_months else "三個月同選"
+	batch.add_theme_font_size_override("font_size", 13)
+	UiStyle.apply_soft_chip(batch, Color("FFD0E4") if _fill_all_months else Color("FFE8F0"))
+	batch.pressed.connect(func() -> void:
+		_fill_all_months = not _fill_all_months
+		_show_activity_picker()
+	)
+	_filter_host.add_child(batch)
 
 
 func _rebuild_activity_list() -> void:
 	for c in _activity_list.get_children():
 		c.queue_free()
-	# Soft mood tip when heavy activities are gated
+	var hint_bits: PackedStringArray = []
 	if int(GameState.mood) < 35:
-		var tip := Label.new()
-		tip.text = "%s心情偏低，激烈活動暫時鎖上；安排休息或休閒會比較好。" % GameState.daughter_display_name()
-		tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		UiStyle.apply_label(tip, 13, false)
-		tip.add_theme_color_override("font_color", Color("C45A7A"))
-		_activity_list.add_child(tip)
-	var by_cat := Activities.ids_by_category_for(GameState)
-	for cat in by_cat:
-		var cat_lbl := Label.new()
-		cat_lbl.text = "— %s —" % cat
-		UiStyle.apply_label(cat_lbl, 14, true)
-		_activity_list.add_child(cat_lbl)
-		for id in by_cat[cat]:
-			var def: Dictionary = Activities.get_activity(id)
-			var row := Button.new()
-			var cash_s := int(def.get("cash", 0))
-			var cash_txt := ("＋$%d" % cash_s) if cash_s > 0 else ("－$%d" % abs(cash_s) if cash_s < 0 else "$0")
-			var avail: Dictionary = Activities.availability(id, GameState)
-			var ok: bool = bool(avail.get("ok", false))
-			var reason: String = str(avail.get("reason", ""))
-			if ok:
-				row.text = "%s（%s）" % [def.get("name", id), cash_txt]
-				row.tooltip_text = str(def.get("desc", ""))
-			else:
-				var short_reason := reason
-				if short_reason.length() > 14:
-					short_reason = short_reason.substr(0, 14) + "…"
-				row.text = "%s（%s）· %s" % [def.get("name", id), cash_txt, short_reason]
-				row.tooltip_text = "%s\n🔒 %s" % [str(def.get("desc", "")), reason]
-			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			UiStyle.apply_soft_chip(row, Color("FFE8F0"))
-			var aid: String = id
-			row.disabled = not ok
-			row.pressed.connect(func(): _pick_activity(aid))
-			_activity_list.add_child(row)
+		hint_bits.append("%s心情偏低，激烈活動暫時鎖上。" % GameState.daughter_display_name())
+	if int(GameState.stamina) <= ScheduleAssist.LOW_STAMINA:
+		hint_bits.append(Activities.RECOVERY_TIP)
+	if _fill_all_months:
+		hint_bits.append("點一項就填滿三個月，之後仍可改單月。")
+	if _activity_hint:
+		_activity_hint.text = " ".join(hint_bits)
+		_activity_hint.visible = _activity_hint.text != ""
+	var rows: Array = Activities.list_rows(GameState, _activity_filter, _affordable_only)
+	if rows.is_empty():
+		var empty := Label.new()
+		empty.text = "這個篩選底下現在沒有可選的。可以關掉「顯示僅可選」，或換一個標籤。"
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(empty, 14, true)
+		_activity_list.add_child(empty)
+		return
+	var shown_locked := false
+	for row_data in rows:
+		var id := str(row_data.get("id", ""))
+		var ok := bool(row_data.get("ok", false))
+		if not ok and not shown_locked:
+			shown_locked = true
+			var locked_lbl := Label.new()
+			locked_lbl.text = "— 現在還差一點 —"
+			UiStyle.apply_label(locked_lbl, 14, true)
+			_activity_list.add_child(locked_lbl)
+		elif ok and _activity_list.get_child_count() == 0:
+			var ok_lbl := Label.new()
+			ok_lbl.text = "— 現在可選 —"
+			UiStyle.apply_label(ok_lbl, 14, true)
+			_activity_list.add_child(ok_lbl)
+		var def: Dictionary = Activities.get_activity(id)
+		var row := Button.new()
+		var badge := str(row_data.get("badge", ""))
+		var prefix := ("%s　" % badge) if badge != "" else ""
+		var cash_s := int(def.get("cash", 0))
+		var cash_txt := ("＋$%d" % cash_s) if cash_s > 0 else ("－$%d" % abs(cash_s) if cash_s < 0 else "免費")
+		var cat := str(row_data.get("category", ""))
+		if ok:
+			row.text = "%s%s（%s）　%s" % [prefix, def.get("name", id), cash_txt, cat]
+		else:
+			var gap := Activities.shortfall_text(id, GameState)
+			var reason := gap if gap != "" else str(row_data.get("reason", ""))
+			row.text = "%s%s（%s）　%s" % [prefix, def.get("name", id), cash_txt, reason]
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var tip_lines: PackedStringArray = [str(def.get("desc", ""))]
+		var effects := Activities.effect_blurb(id)
+		if effects != "":
+			tip_lines.append(effects)
+		var note := Activities.diary_note(id)
+		if note != "":
+			tip_lines.append(note)
+		if not ok:
+			tip_lines.append("🔒 %s" % str(row_data.get("reason", "")))
+			if int(GameState.stamina) <= ScheduleAssist.LOW_STAMINA:
+				tip_lines.append(Activities.RECOVERY_TIP)
+		row.tooltip_text = "\n".join(tip_lines)
+		UiStyle.apply_soft_chip(row, Color("FFD0E4") if badge != "" else Color("FFE8F0"))
+		var aid: String = id
+		row.disabled = not ok
+		row.pressed.connect(func(): _pick_activity(aid))
+		_activity_list.add_child(row)
 
 
 func _pick_activity(id: String) -> void:
-	GameState.set_schedule_slot(_selected_month, id)
-	for i in range(GameConfig.MONTHS_PER_SEASON):
-		if GameState.season_schedule[i] == "":
-			_selected_month = i
-			break
+	if _fill_all_months:
+		ScheduleAssist.repeat_activity(GameState, id)
+	else:
+		GameState.set_schedule_slot(_selected_month, id)
+		for i in range(GameConfig.MONTHS_PER_SEASON):
+			if GameState.season_schedule[i] == "":
+				_selected_month = i
+				break
 	_hide_popups()
 	_refresh()
 
@@ -1291,11 +1462,14 @@ func _refresh() -> void:
 	_update_daughter_art()
 	var stage := GameConfig.growth_stage_for_year(GameState.year)
 	var sn := GameConfig.season_name(GameState.season)
+	var school := ""
+	if GameState.year >= 9 and GameState.year <= 12:
+		school = "・高中"
 	if GameConfig.is_adult_year(GameState.year):
 		_time_lbl.text = "♡  %s · %s裝" % [GameState.get_time_label(), sn]
 	else:
-		_time_lbl.text = "♡  %s · 成長階段 %d（%s）· %s裝" % [
-			GameState.get_time_label(), stage, GameConfig.growth_stage_label(stage), sn
+		_time_lbl.text = "♡  %s · 成長階段 %d（%s%s）· %s裝" % [
+			GameState.get_time_label(), stage, GameConfig.growth_stage_label(stage), school, sn
 		]
 	var adult := Adulthood.is_adult(GameState)
 	if _sched_title:
@@ -1311,6 +1485,9 @@ func _refresh() -> void:
 	if _romance_lbl:
 		_romance_lbl.visible = adult
 		_romance_lbl.text = Adulthood.hub_life_line(GameState)
+		_romance_lbl.tooltip_text = Adulthood.romance_guide()
+	if _romance_btn:
+		_romance_btn.visible = adult
 	var s := GameState.get_stats_dict()
 	_stats_lbl.text = "魅力 %d　道德 %d\n人際 %d　體力 %d\n學識 %d　心情 %d" % [
 		s["charm"], s["morals"],
@@ -1326,7 +1503,9 @@ func _refresh() -> void:
 		_growth_lbl.text = GrowthPath.drawer_line(GameState)
 	if _growth_btn:
 		_growth_btn.visible = growth_open
+	ScheduleAssist.maybe_force_rest(GameState)
 	_refresh_slots_highlight()
+	_refresh_schedule_assist()
 	if GameState.is_season_fully_scheduled():
 		_confirm_btn.text = "確認本季排程 → 結算"
 		UiStyle.apply_button(_confirm_btn, true)
@@ -1334,6 +1513,10 @@ func _refresh() -> void:
 		_confirm_btn.text = "排滿三個月後可結算"
 		UiStyle.apply_button(_confirm_btn, false)
 	_confirm_btn.disabled = false
+	if int(GameState.stamina) <= ScheduleAssist.LOW_STAMINA:
+		_confirm_btn.tooltip_text = Activities.RECOVERY_TIP
+	else:
+		_confirm_btn.tooltip_text = ""
 	if _travel_hint:
 		_travel_hint.text = Travel.hub_hint(GameState)
 		_travel_hint.visible = _travel_hint.text != ""
@@ -1578,6 +1761,178 @@ func _mom_family_card() -> PanelContainer:
 	return card
 
 
+func _refresh_schedule_assist() -> void:
+	if _repeat_btn:
+		_repeat_btn.text = ScheduleAssist.repeat_label(GameState)
+		_repeat_btn.tooltip_text = "重複上一季。排完還能改單月。"
+	if _rest_toggle:
+		var on := ScheduleAssist.force_rest_on(GameState)
+		_rest_toggle.text = "強制休息月：開" if on else "強制休息月：關"
+		_rest_toggle.tooltip_text = "體力為 0 時自動填滿在家休息，不必開三次清單。可以關掉。"
+	if _recover_btn:
+		_recover_btn.visible = int(GameState.stamina) <= ScheduleAssist.LOW_STAMINA
+	var bits: PackedStringArray = []
+	var recovery := ScheduleAssist.recovery_line(GameState)
+	if recovery != "":
+		bits.append(recovery)
+	var nudge := Adulthood.schedule_nudge(GameState)
+	if nudge != "":
+		bits.append(nudge)
+	if _assist_hint:
+		_assist_hint.text = "\n".join(bits)
+		_assist_hint.visible = _assist_hint.text != ""
+
+
+func _note_open() -> bool:
+	return _note_layer != null and is_instance_valid(_note_layer)
+
+
+func _close_note_layer(then_continue: bool) -> void:
+	if _note_layer:
+		_note_layer.queue_free()
+		_note_layer = null
+	if then_continue:
+		_after_soft_cards()
+
+
+func _open_note_card(title_text: String, body_text: String, on_close: Callable, compare_years: Array = []) -> void:
+	if _note_open():
+		return
+	_note_layer = CanvasLayer.new()
+	_note_layer.layer = 16
+	add_child(_note_layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0.35, 0.18, 0.25, 0.35)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_note_layer.add_child(dim)
+	var card := PanelContainer.new()
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.offset_left = -280
+	card.offset_right = 280
+	card.offset_top = -220
+	card.offset_bottom = 220
+	card.add_theme_stylebox_override("panel", UiStyle.panel_style(Color("FFF5F8"), Color("F090A8"), 20))
+	_note_layer.add_child(card)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	card.add_child(v)
+	var title := Label.new()
+	title.text = title_text
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UiStyle.apply_label(title, 24)
+	v.add_child(title)
+	if compare_years.size() >= 2:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 16)
+		v.add_child(row)
+		for y in compare_years:
+			var col := VBoxContainer.new()
+			col.add_theme_constant_override("separation", 4)
+			row.add_child(col)
+			col.add_child(DialogueChrome.make_bust("daughter", int(y), 0, Vector2(110, 180)))
+			var cap := Label.new()
+			cap.text = AgeLooks.label_for_year(int(y))
+			cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			UiStyle.apply_label(cap, 13, true)
+			col.add_child(cap)
+	var body := Label.new()
+	body.text = body_text
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UiStyle.apply_label(body, 15)
+	v.add_child(body)
+	var ok := Button.new()
+	ok.text = "知道了 ♡"
+	UiStyle.apply_button(ok, true)
+	ok.pressed.connect(on_close)
+	v.add_child(ok)
+
+
+func _maybe_grew() -> bool:
+	if _note_open() or _tutorial_open() or _growth_tutorial_open() or _adult_intro_open():
+		return false
+	if int(GameState.season) != 0 or int(GameState.year) <= 1:
+		return false
+	var band := AgeLooks.band_for_year(GameState.year)
+	var prev := AgeLooks.band_for_year(int(GameState.year) - 1)
+	if band == prev:
+		return false
+	var key := "grew_seen_%s" % band
+	if bool(GameState.flags.get(key, false)):
+		return false
+	var old_label := AgeLooks.label_for_year(int(GameState.year) - 1)
+	var new_label := AgeLooks.label_for_year(GameState.year)
+	var years: Array = [int(GameState.year) - 1, int(GameState.year)]
+	var close_grew := func() -> void:
+		GameState.flags[key] = true
+		_close_note_layer(true)
+	_open_note_card(
+		"長高了",
+		"從%s到%s。同一個人，手帳換了一頁。" % [old_label, new_label],
+		close_grew,
+		years
+	)
+	return true
+
+
+func _maybe_family_ritual() -> bool:
+	if not bool(GameState.flags.get("family_ritual_pending", false)):
+		return false
+	if _note_open() or _tutorial_open() or _growth_tutorial_open() or _adult_intro_open():
+		return false
+	var act := str(GameState.flags.get("family_last_act", ""))
+	var close_ritual := func() -> void:
+		GameState.flags["family_ritual_pending"] = false
+		_close_note_layer(true)
+	_open_note_card(
+		"成家了",
+		"%s\n\n她自己把燈留成兩個人的。這一頁是她選的，不改平日工作。" % Adulthood.settle_outcome(act),
+		close_ritual
+	)
+	return true
+
+
+func _show_romance_page() -> void:
+	if _confide_popup != null and _confide_popup.visible:
+		return
+	if _note_open():
+		return
+	var body := "%s\n\n%s\n%s\n%s" % [
+		Adulthood.romance_guide(),
+		Adulthood.settle_outcome("family_meet"),
+		Adulthood.settle_outcome("family_nest"),
+		Adulthood.settle_outcome("family_talk"),
+	]
+	var close_heart := func() -> void:
+		_close_note_layer(false)
+	_open_note_card("這顆心", body, close_heart)
+
+
+func _after_soft_cards() -> void:
+	if _tutorial_open() or _growth_tutorial_open():
+		return
+	# The first adult job card has to land before the growth page, or the
+	# high-school / university line never appears on that visit.
+	if Adulthood.is_adult(GameState) and not bool(GameState.flags.get("adult_job_intro_done", false)):
+		_maybe_adult_intro()
+		return
+	if _maybe_grew():
+		return
+	if _maybe_family_ritual():
+		return
+	_maybe_confide()
+
+
+func _place_taste(activity_id: String) -> void:
+	var slot := 0
+	for i in range(GameConfig.MONTHS_PER_SEASON):
+		if str(GameState.season_schedule[i]) == "":
+			slot = i
+			break
+	GameState.set_schedule_slot(slot, activity_id)
+	_dismiss_growth_tutorial()
+
+
 func _maybe_growth_tutorial() -> void:
 	if not GrowthPath.unlocked(GameState):
 		return
@@ -1593,7 +1948,7 @@ func _maybe_growth_tutorial() -> void:
 	card.offset_left = 360
 	card.offset_top = 72
 	card.offset_right = 900
-	card.offset_bottom = 312
+	card.offset_bottom = 420
 	card.add_theme_stylebox_override("panel", UiStyle.panel_style(Color(1, 0.96, 0.97, 0.96), Color("F090A8"), 18))
 	_growth_layer.add_child(card)
 
@@ -1609,13 +1964,24 @@ func _maybe_growth_tutorial() -> void:
 	for line in [
 		"專長會跟著相關的月份慢慢升級：鋼琴、外語、程式、繪畫、球類、烹飪、演講。",
 		"興趣也會累起來：藝術、理工、服務、文教、運動、商業。以後找工作時，會輕輕偏向她走得比較久的那些。",
-		"這一季可以排學鋼琴、外語班，或程式興趣班。手帳裡的「翻開專長」隨時能看。",
+		"這一季可以排學鋼琴、外語班，或程式興趣班。體力不夠時，先排一次幾乎不耗體力的專長體驗。",
 	]:
 		var lbl := Label.new()
 		lbl.text = line
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		UiStyle.apply_label(lbl, 14)
 		v.add_child(lbl)
+
+	var taste_row := HBoxContainer.new()
+	taste_row.add_theme_constant_override("separation", 6)
+	v.add_child(taste_row)
+	for taste in [["taste_piano", "體驗鋼琴"], ["taste_language", "體驗外語"], ["taste_code", "體驗程式"]]:
+		var taste_btn := Button.new()
+		taste_btn.text = str(taste[1])
+		UiStyle.apply_button(taste_btn, false)
+		var taste_id := str(taste[0])
+		taste_btn.pressed.connect(func() -> void: _place_taste(taste_id))
+		taste_row.add_child(taste_btn)
 
 	var ok := Button.new()
 	ok.text = "知道了 ♡"
@@ -1633,8 +1999,7 @@ func _dismiss_growth_tutorial() -> void:
 	if _growth_layer:
 		_growth_layer.queue_free()
 		_growth_layer = null
-	_maybe_adult_intro()
-	_maybe_confide()
+	_after_soft_cards()
 
 
 func _show_growth_panel() -> void:
@@ -1671,6 +2036,14 @@ func _fill_growth_panel() -> void:
 	bright.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	UiStyle.apply_label(bright, 14, true)
 	_growth_box.add_child(bright)
+	var hint := GrowthPath.page_hint(GameState)
+	if hint != "":
+		var hint_lbl := Label.new()
+		hint_lbl.text = hint
+		hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		UiStyle.apply_label(hint_lbl, 14, false)
+		hint_lbl.add_theme_color_override("font_color", Color("C45A7A"))
+		_growth_box.add_child(hint_lbl)
 
 
 func _make_growth_popup() -> PanelContainer:
@@ -1774,6 +2147,8 @@ func _show_confide_offer() -> void:
 		name_line = "%s想跟媽媽說" % GameState.daughter_display_name()
 	elif hearer == "parents":
 		name_line = "%s想跟你們說" % GameState.daughter_display_name()
+	elif hearer == "friend":
+		name_line = "%s想跟朋友說" % GameState.daughter_display_name()
 	DialogueChrome.apply_heading(
 		_confide_shell,
 		str(_confide_offer.get("kicker", "傾訴心事")),
@@ -1841,6 +2216,8 @@ func _paint_confide_frame(line_id: String) -> void:
 	var hearer := str(_confide_offer.get("hearer", "dad"))
 	if hearer == "mom" or hearer == "parents":
 		DialogueChrome.apply_listener(_confide_shell, "mom", GameState.year, GameState.season, "媽媽")
+	elif hearer == "friend":
+		DialogueChrome.apply_listener(_confide_shell, "", GameState.year, GameState.season, "")
 	else:
 		DialogueChrome.apply_listener(_confide_shell, "dad", GameState.year, GameState.season, "爸爸")
 	DialogueChrome.apply_theme(_confide_shell, DialogueChrome.theme_for_confide(line_id), GameState.year)
@@ -1949,7 +2326,7 @@ func _accept_adult_job() -> void:
 	Adulthood.ensure_job(GameState)
 	_close_adult_intro()
 	_refresh()
-	_maybe_confide()
+	_after_soft_cards()
 
 
 func _browse_adult_jobs() -> void:
@@ -1984,10 +2361,18 @@ func _fill_job_panel() -> void:
 		var jid := str(job.get("id", ""))
 		var row := Button.new()
 		var mark := "（目前）" if jid == current else ""
-		row.text = "%s%s　每月 $%d\n%s" % [str(job.get("name", "")), mark, int(job.get("cash", 0)), str(job.get("blurb", ""))]
+		var recommend := "推薦　" if jid == Adulthood.recommended_job(GameState) else ""
+		var fit := Adulthood.job_fit_line(GameState, job)
+		var fit_line := ("\n%s" % fit) if fit != "" else ""
+		row.text = "%s%s%s\n薪水 $%d／月　　%s\n%s%s" % [
+			recommend, str(job.get("name", "")), mark,
+			int(job.get("cash", 0)), Adulthood.job_stamina_label(job),
+			str(job.get("blurb", "")), fit_line,
+		]
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UiStyle.apply_soft_chip(row, Color("FFE8F0") if jid != current else Color("FFD0E4"))
+		var tint := Color("FFD0E4") if jid == current or recommend != "" else Color("FFE8F0")
+		UiStyle.apply_soft_chip(row, tint)
 		row.add_theme_font_size_override("font_size", 14)
 		var picked := jid
 		row.pressed.connect(func() -> void:
