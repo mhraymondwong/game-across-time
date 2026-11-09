@@ -77,6 +77,13 @@ var year_event_titles: Array = []
 var last_year_review: Dictionary = {}
 var pending_ending_after_review: bool = false
 
+## Separate from the three manual diaries. Written every other season,
+## and always when a year turns, so web local storage is not hit every season.
+const AUTOSAVE_PATH := "user://autosave.json"
+const AUTOSAVE_EVERY_SEASONS := 2
+var _autosave_gap: int = 0
+var _busy_layer: CanvasLayer
+
 const _STAT_KEYS := ["charm", "morals", "social", "stamina", "academia", "mood"]
 
 
@@ -130,6 +137,7 @@ func begin_new_game(given_name: String = "") -> void:
 	year_event_titles = []
 	last_year_review = {}
 	pending_ending_after_review = false
+	_autosave_gap = 0
 	snapshot_year_start()
 	Mom.seed_family_album(self)
 	state_changed.emit()
@@ -317,10 +325,17 @@ func resolve_season() -> Dictionary:
 	var job_cash := 0
 	if Adulthood.is_adult(self):
 		Adulthood.grant_yearly_skill(self)
+	var applied_ids: Array[String] = []
+	var all_chores := true
 	for i in range(GameConfig.MONTHS_PER_SEASON):
-		var id: String = season_schedule[i] if i < season_schedule.size() else ""
-		if id == "" or not Activities.is_available(id, self):
-			id = "rest_sleep"
+		var scheduled: String = season_schedule[i] if i < season_schedule.size() else ""
+		if scheduled == "" or not Activities.is_available(scheduled, self):
+			scheduled = "rest_sleep"
+		applied_ids.append(scheduled)
+		if scheduled != "virtue_chores":
+			all_chores = false
+	for i in range(GameConfig.MONTHS_PER_SEASON):
+		var id: String = applied_ids[i]
 		var d := apply_activity(id)
 		last_activity_names.append(str(d.get("name", id)))
 		month_logs.append(d)
@@ -330,7 +345,10 @@ func resolve_season() -> Dictionary:
 			_apply_delta(jd)
 			job_cash += int(jd.get("cash", 0))
 			job_name = str(jd.get("name", job_name))
-		var vig := ActivityScenes.get_vignette(id, season)
+		var variant := -1
+		if all_chores:
+			variant = ActivityScenes.chore_variant_index(year, i)
+		var vig := ActivityScenes.get_vignette(id, season, variant)
 		vig["month_index"] = i
 		vig["month_label"] = GameConfig.MONTH_LABELS[i] if i < GameConfig.MONTH_LABELS.size() else "這個月"
 		vig["activity_name"] = str(d.get("name", id))
@@ -379,15 +397,25 @@ func advance_after_season() -> String:
 		last_year_review = build_year_review()
 		year += 1
 		_year_end_touch()
+		_release_stale_year_art()
 		if year > GameConfig.TOTAL_YEARS:
 			pending_ending_after_review = true
+			maybe_autosave(true)
 			state_changed.emit()
 			return "year_review"
 		begin_season()
+		maybe_autosave(true)
 		state_changed.emit()
 		return "year_review"
 	begin_season()
+	maybe_autosave(false)
 	return "hub"
+
+
+func _release_stale_year_art() -> void:
+	var packs := get_node_or_null("/root/ResourcePacks")
+	if packs != null and packs.has_method("release_stale_year_art"):
+		packs.release_stale_year_art(year)
 
 
 func snapshot_year_start() -> void:
@@ -458,8 +486,7 @@ func _year_highlights() -> Array:
 	var feed := str(flags.get("year_ending_feed", ""))
 	if feed != "" and out.size() < 6:
 		out.append("結局會提到・%s" % feed)
-	var aff_line := TownNpcs.year_highlight(self)
-	if aff_line != "":
+	for aff_line in TownNpcs.year_highlights(self):
 		out.append(aff_line)
 	if out.is_empty():
 		out.append("平靜的一年，手帳裡也留下了淡淡的粉紅。")
@@ -917,7 +944,10 @@ func slot_title(slot: int) -> String:
 
 
 func peek_save(slot: int) -> Dictionary:
-	var path := _save_path(slot)
+	return _read_json_dict(_save_path(slot))
+
+
+func _read_json_dict(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -929,6 +959,29 @@ func peek_save(slot: int) -> Dictionary:
 	if typeof(data) != TYPE_DICTIONARY:
 		return {}
 	return data
+
+
+func _preview_from_data(data: Dictionary, title_fallback: String) -> Dictionary:
+	var y := int(data.get("year", 1))
+	var s := int(data.get("season", 0))
+	var name := str(data.get("save_name", ""))
+	if name == "":
+		name = title_fallback
+	var dname := str(data.get("daughter_name", "")).strip_edges()
+	if daughter_name_error(dname) != "":
+		dname = DEFAULT_DAUGHTER_NAME
+	var album_raw = data.get("album", [])
+	var album_n := 0
+	if typeof(album_raw) == TYPE_ARRAY:
+		album_n = album_raw.size()
+	return {
+		"exists": true,
+		"title": name,
+		"detail": "第 %d 年 · %s · %s · %d 歲" % [y, GameConfig.season_name(s), dname, GameConfig.age_for_year(y)],
+		"year": y,
+		"season": s,
+		"album_count": album_n,
+	}
 
 
 func save_slot_preview(slot: int) -> Dictionary:
@@ -943,27 +996,9 @@ func save_slot_preview(slot: int) -> Dictionary:
 			"season": 0,
 			"album_count": 0,
 		}
-	var y := int(data.get("year", 1))
-	var s := int(data.get("season", 0))
-	var name := str(data.get("save_name", ""))
-	if name == "":
-		name = slot_title(slot)
-	var dname := str(data.get("daughter_name", "")).strip_edges()
-	if daughter_name_error(dname) != "":
-		dname = DEFAULT_DAUGHTER_NAME
-	var album_raw = data.get("album", [])
-	var album_n := 0
-	if typeof(album_raw) == TYPE_ARRAY:
-		album_n = album_raw.size()
-	return {
-		"exists": true,
-		"slot": slot,
-		"title": name,
-		"detail": "第 %d 年 · %s · %s · %d 歲" % [y, GameConfig.season_name(s), dname, GameConfig.age_for_year(y)],
-		"year": y,
-		"season": s,
-		"album_count": album_n,
-	}
+	var preview := _preview_from_data(data, slot_title(slot))
+	preview["slot"] = slot
+	return preview
 
 
 func browse_album_from_slot(slot: int) -> bool:
@@ -1003,6 +1038,58 @@ func load_game(slot: int = 0) -> bool:
 		push_error("load_game: invalid JSON in %s" % path)
 		return false
 	from_dict(data)
+	_autosave_gap = 0
+	return true
+
+
+## True when a diary was written. False when this season was skipped
+## so local storage is not rewritten every season. Year turns always write.
+func maybe_autosave(force: bool = false) -> bool:
+	if not force and _autosave_gap + 1 < AUTOSAVE_EVERY_SEASONS:
+		_autosave_gap += 1
+		return false
+	if not _write_autosave():
+		return false
+	_autosave_gap = 0
+	return true
+
+
+func _write_autosave() -> bool:
+	var f := FileAccess.open(AUTOSAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		push_warning("autosave: cannot open %s" % AUTOSAVE_PATH)
+		return false
+	f.store_string(JSON.stringify(to_dict(), "\t"))
+	f.close()
+	return true
+
+
+func has_autosave() -> bool:
+	return FileAccess.file_exists(AUTOSAVE_PATH)
+
+
+func autosave_preview() -> Dictionary:
+	var data := _read_json_dict(AUTOSAVE_PATH)
+	if data.is_empty():
+		return {
+			"exists": false,
+			"title": "自動留下的一頁",
+			"detail": "尚未寫下",
+			"year": 0,
+			"season": 0,
+			"album_count": 0,
+		}
+	var preview := _preview_from_data(data, "自動留下的一頁")
+	preview["title"] = "自動留下的一頁"
+	return preview
+
+
+func load_autosave() -> bool:
+	var data := _read_json_dict(AUTOSAVE_PATH)
+	if data.is_empty():
+		return false
+	from_dict(data)
+	_autosave_gap = 0
 	return true
 
 
@@ -1010,3 +1097,35 @@ func delete_save(slot: int = 0) -> void:
 	var path := _save_path(slot)
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## Light line that survives the scene change, so a long settle or load
+## keeps the previous frame instead of looking like a blank freeze.
+func show_busy(message: String) -> void:
+	hide_busy()
+	var layer := CanvasLayer.new()
+	layer.name = "BusyNote"
+	layer.layer = 120
+	add_child(layer)
+	var bar := PanelContainer.new()
+	bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	bar.offset_left = -240
+	bar.offset_right = 240
+	bar.offset_top = -78
+	bar.offset_bottom = -24
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_theme_stylebox_override("panel", UiStyle.panel_style(Color(1, 0.97, 0.96, 0.94), Color("F090A8"), 18))
+	layer.add_child(bar)
+	var lbl := Label.new()
+	lbl.text = message
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiStyle.apply_label(lbl, 16)
+	bar.add_child(lbl)
+	_busy_layer = layer
+
+
+func hide_busy() -> void:
+	if _busy_layer != null and is_instance_valid(_busy_layer):
+		_busy_layer.queue_free()
+	_busy_layer = null

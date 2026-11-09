@@ -7,6 +7,7 @@ var _body: VBoxContainer
 
 
 func _ready() -> void:
+	GameState.hide_busy()
 	UiStyle.make_bg(self, GameConfig.COL_BG)
 	var album_path := GameConfig.year_review_album_bg()
 	if album_path != "":

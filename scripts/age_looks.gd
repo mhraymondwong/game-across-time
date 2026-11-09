@@ -63,6 +63,17 @@ static func label_for_year(year: int) -> String:
 	return str(BAND_LABELS.get(band_for_year(year), ""))
 
 
+## Hub stage caption. Years 9–12 (about 14–17, including 高中 at 15–17)
+## keep 青春／青年 and add 高中, so the art stage still reads as school.
+static func hub_stage_note(year: int) -> String:
+	if GameConfig.is_adult_year(year):
+		return ""
+	var label := GameConfig.growth_stage_label(GameConfig.growth_stage_for_year(year))
+	if year >= 9 and year <= 12:
+		return "%s・高中" % label
+	return label
+
+
 ## Destination family still for this game year. `fallback` is today's single JPG.
 static func travel_thumb(dest_id: String, year: int, fallback: String) -> String:
 	var found := _banded("res://assets/travel/%s_%s" % [dest_id.strip_edges(), band_for_year(year)], ["jpg", "png"])

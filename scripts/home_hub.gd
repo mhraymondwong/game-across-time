@@ -85,6 +85,8 @@ var _affordable_only: bool = false
 var _fill_all_months: bool = false
 var _filter_host: HFlowContainer
 var _activity_hint: Label
+var _activity_scroll: ScrollContainer
+var _activity_scroll_hint: Label
 var _note_layer: CanvasLayer
 var _job_popup: PanelContainer
 var _job_list: VBoxContainer
@@ -139,6 +141,7 @@ const PLACES := [
 
 
 func _ready() -> void:
+	GameState.hide_busy()
 	# First adult entry: university or high-school career, before the job card and before a trip.
 	if get_tree().current_scene == self and Adulthood.needs_education_choice(GameState):
 		call_deferred("_open_education_fork")
@@ -836,14 +839,20 @@ func _make_activity_popup() -> PanelContainer:
 	v.add_child(_activity_hint)
 
 	var scroll := ScrollContainer.new()
+	scroll.name = "ActivityScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.custom_minimum_size = Vector2(0, 220)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
+	_activity_scroll = scroll
 
 	_activity_list = VBoxContainer.new()
 	_activity_list.add_theme_constant_override("separation", 6)
 	_activity_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_activity_list)
+	_activity_scroll_hint = UiStyle.make_scroll_hint()
+	v.add_child(_activity_scroll_hint)
+	UiStyle.bind_scroll_hint(scroll, _activity_scroll_hint)
 
 	var close := Button.new()
 	close.text = "關閉"
@@ -1249,6 +1258,7 @@ func _rebuild_activity_list() -> void:
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		UiStyle.apply_label(empty, 14, true)
 		_activity_list.add_child(empty)
+		call_deferred("_sync_activity_scroll_hint")
 		return
 	var shown_locked := false
 	for row_data in rows:
@@ -1297,6 +1307,11 @@ func _rebuild_activity_list() -> void:
 		row.disabled = not ok
 		row.pressed.connect(func(): _pick_activity(aid))
 		_activity_list.add_child(row)
+	call_deferred("_sync_activity_scroll_hint")
+
+
+func _sync_activity_scroll_hint() -> void:
+	UiStyle.refresh_scroll_hint(_activity_scroll, _activity_scroll_hint)
 
 
 func _pick_activity(id: String) -> void:
@@ -1439,6 +1454,11 @@ func _on_confirm_season() -> void:
 	if not GameState.is_season_fully_scheduled():
 		_confirm_btn.text = "請先排滿三個月！"
 		return
+	if _confirm_btn.disabled:
+		return
+	_confirm_btn.disabled = true
+	GameState.show_busy("正在把這一季寫進日記…")
+	await get_tree().process_frame
 	GameState.resolve_season()
 	get_tree().change_scene_to_file("res://scenes/season_result.tscn")
 
@@ -1462,14 +1482,11 @@ func _refresh() -> void:
 	_update_daughter_art()
 	var stage := GameConfig.growth_stage_for_year(GameState.year)
 	var sn := GameConfig.season_name(GameState.season)
-	var school := ""
-	if GameState.year >= 9 and GameState.year <= 12:
-		school = "・高中"
 	if GameConfig.is_adult_year(GameState.year):
 		_time_lbl.text = "♡  %s · %s裝" % [GameState.get_time_label(), sn]
 	else:
-		_time_lbl.text = "♡  %s · 成長階段 %d（%s%s）· %s裝" % [
-			GameState.get_time_label(), stage, GameConfig.growth_stage_label(stage), school, sn
+		_time_lbl.text = "♡  %s · 成長階段 %d（%s）· %s裝" % [
+			GameState.get_time_label(), stage, AgeLooks.hub_stage_note(GameState.year), sn
 		]
 	var adult := Adulthood.is_adult(GameState)
 	if _sched_title:

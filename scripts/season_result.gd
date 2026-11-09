@@ -20,6 +20,7 @@ const _CARD_MAX_W := 820.0
 
 
 func _ready() -> void:
+	GameState.hide_busy()
 	UiStyle.make_bg(self, GameConfig.COL_BG)
 	_panel = PanelContainer.new()
 	_panel.name = "SeasonCard"
@@ -710,6 +711,11 @@ func _on_continue() -> void:
 	if _showing_vignette:
 		_dismiss_vignette()
 		return
+	if _cont:
+		_cont.disabled = true
+		_cont.text = "翻頁中…"
+	GameState.show_busy("正在翻開下一頁…")
+	await get_tree().process_frame
 	var next := GameState.advance_after_season()
 	if next == "year_review":
 		get_tree().change_scene_to_file("res://scenes/year_review.tscn")
