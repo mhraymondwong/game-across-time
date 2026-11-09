@@ -4,12 +4,15 @@ extends Control
 
 
 var _body: VBoxContainer
+var _travel_scroll: ScrollContainer
+var _travel_scroll_hint: Label
 var _selected_id: String = ""
 var _pay_mode: String = "full"
 var _notice: String = ""
 
 
 func _ready() -> void:
+	GameState.hide_busy()
 	UiStyle.make_bg(self, GameConfig.COL_BG)
 	var album_path := GameConfig.year_review_album_bg()
 	if album_path != "":
@@ -56,6 +59,10 @@ func _ready() -> void:
 		_show_note("這一年的遠行已經決定好了。", "回到手帳就好。")
 
 
+func _sync_travel_scroll_hint() -> void:
+	UiStyle.refresh_scroll_hint(_travel_scroll, _travel_scroll_hint)
+
+
 func _clear_body() -> void:
 	if _body == null:
 		return
@@ -96,10 +103,12 @@ func _show_dest() -> void:
 		_body.add_child(note)
 
 	var scroll := ScrollContainer.new()
+	scroll.name = "TravelScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 280)
+	scroll.custom_minimum_size = Vector2(0, 220)
 	_body.add_child(scroll)
+	_travel_scroll = scroll
 
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -109,6 +118,10 @@ func _show_dest() -> void:
 
 	for d in Travel.destinations():
 		list.add_child(_dest_card(d))
+	_travel_scroll_hint = UiStyle.make_scroll_hint()
+	_body.add_child(_travel_scroll_hint)
+	UiStyle.bind_scroll_hint(scroll, _travel_scroll_hint)
+	call_deferred("_sync_travel_scroll_hint")
 
 	if _selected_id != "":
 		var chosen := Travel.get_dest(_selected_id)

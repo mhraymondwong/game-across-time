@@ -2424,7 +2424,8 @@ func _run() -> void:
 		shell["panel"].free()
 
 	var season_ui_ok: bool = await _check_season_summary()
-	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok and dialogue_ok and season_ui_ok
+	var p2_ok: bool = await _check_p2()
+	var ok := stage_ok and wardrobe_ok and map_ok and save_ok and act_ok and yr_ok and end_ok and title_ok and phase9_ok and phase10_ok and phase11_ok and phase12_ok and phase13_ok and phase14_ok and phase15_ok and packs_ok and dialogue_ok and season_ui_ok and p2_ok
 	if months != expected:
 		printerr("[smoke] FAIL: months_played != %d" % expected)
 		ok = false
@@ -2594,6 +2595,272 @@ func _season_card_layout_ok(scene: Control, sz: Vector2) -> bool:
 		if node.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 			printerr("[smoke] FAIL %s eats wheel events" % node.name)
 			return false
+	return true
+
+
+func _check_p2() -> bool:
+	var gs: Node = root.get_node_or_null("GameState")
+	if gs == null:
+		printerr("[smoke] FAIL p2: no GameState")
+		return false
+	var ok := true
+	if AgeLooks.hub_stage_note(10) != "青春・高中" or AgeLooks.hub_stage_note(11) != "青年・高中" or AgeLooks.hub_stage_note(12) != "青年・高中":
+		printerr("[smoke] FAIL high school hub note %s / %s / %s" % [AgeLooks.hub_stage_note(10), AgeLooks.hub_stage_note(11), AgeLooks.hub_stage_note(12)])
+		ok = false
+	elif GameConfig.age_for_year(10) != 15 or GameConfig.age_for_year(11) != 16 or GameConfig.age_for_year(12) != 17:
+		printerr("[smoke] FAIL ages 15–17 are not years 10–12")
+		ok = false
+	elif AgeLooks.hub_stage_note(8) != "少年" or AgeLooks.hub_stage_note(16) != "":
+		printerr("[smoke] FAIL hub stage note leaked outside high school")
+		ok = false
+	else:
+		print("[smoke] high school hub note OK")
+
+	var seen := {}
+	for i in 3:
+		var vig: Dictionary = ActivityScenes.get_vignette("virtue_chores", 1, ActivityScenes.chore_variant_index(7, i))
+		seen[str(vig.get("title", ""))] = true
+	var single: Dictionary = ActivityScenes.get_vignette("virtue_chores", 0, -1)
+	if seen.size() != 3 or not seen.has("家裡的碗") or not seen.has("摺好的衣服") or not seen.has("擦過的桌面"):
+		printerr("[smoke] FAIL chore variants %s" % seen)
+		ok = false
+	elif str(single.get("title", "")) != "家裡的碗":
+		printerr("[smoke] FAIL a single chores month changed copy")
+		ok = false
+	else:
+		print("[smoke] chore copy variants OK")
+
+	var saved_aff: Dictionary = gs.npc_affinity.duplicate()
+	gs.npc_affinity["chan_auntie"] = 100
+	gs.npc_affinity["lin_xiaoqing"] = 48
+	gs.npc_affinity["wong_doctor"] = 30
+	var lines: PackedStringArray = TownNpcs.year_highlights(gs)
+	if lines.size() != 3 or not str(lines[0]).contains("陳阿姨") or not str(lines[1]).contains("林小晴") or not str(lines[2]).contains("王醫師"):
+		printerr("[smoke] FAIL year highlights %s" % lines)
+		ok = false
+	elif TownNpcs.year_highlight(gs) != lines[0]:
+		printerr("[smoke] FAIL year_highlight is not the first person")
+		ok = false
+	else:
+		var review_lines: Array = gs._year_highlights()
+		var people := 0
+		for line in review_lines:
+			if str(line).begins_with("人際・"):
+				people += 1
+		if people != 3:
+			printerr("[smoke] FAIL year review listed %d people" % people)
+			ok = false
+		else:
+			print("[smoke] year highlights 3 OK")
+	gs.npc_affinity = saved_aff
+
+	var gap_before: int = gs._autosave_gap
+	gs._autosave_gap = 0
+	var first: bool = gs.maybe_autosave(false)
+	var second: bool = gs.maybe_autosave(false)
+	var third: bool = gs.maybe_autosave(false)
+	var forced: bool = gs.maybe_autosave(true)
+	if first or not second or third or not forced:
+		printerr("[smoke] FAIL autosave throttle first=%s second=%s third=%s force=%s" % [first, second, third, forced])
+		ok = false
+	elif not gs.has_autosave():
+		printerr("[smoke] FAIL autosave file missing")
+		ok = false
+	else:
+		var preview: Dictionary = gs.autosave_preview()
+		if str(preview.get("title", "")) != "自動留下的一頁" or int(preview.get("year", 0)) <= 0:
+			printerr("[smoke] FAIL autosave preview %s" % preview)
+			ok = false
+		else:
+			var snap: Dictionary = gs.to_dict()
+			var kept_year: int = gs.year
+			if not gs.load_autosave():
+				printerr("[smoke] FAIL load_autosave")
+				ok = false
+			elif gs.year != kept_year:
+				printerr("[smoke] FAIL autosave year %s != %s" % [gs.year, kept_year])
+				ok = false
+			gs.from_dict(snap)
+			if gs.year != kept_year:
+				printerr("[smoke] FAIL state restore after autosave")
+				ok = false
+			else:
+				print("[smoke] autosave throttle OK")
+	gs._autosave_gap = gap_before
+
+	var packs := root.get_node_or_null("ResourcePacks")
+	var stale := "res://assets/adulthood/adult_y13_spring.png"
+	var keep := "res://assets/adulthood/adult_y16_spring.png"
+	var stale_tex := load(stale)
+	var keep_tex := load(keep)
+	if packs == null or stale_tex == null or keep_tex == null or not ResourceLoader.has_cached(stale) or not ResourceLoader.has_cached(keep):
+		printerr("[smoke] FAIL could not cache adult plates")
+		ok = false
+	else:
+		var released: int = packs.release_stale_year_art(16)
+		if ResourceLoader.has_cached(stale):
+			printerr("[smoke] FAIL stale adult plate still cached")
+			ok = false
+		elif not ResourceLoader.has_cached(keep):
+			printerr("[smoke] FAIL current adult plate was released")
+			ok = false
+		elif released < 1:
+			printerr("[smoke] FAIL release count %d" % released)
+			ok = false
+		elif load(stale) == null:
+			printerr("[smoke] FAIL stale plate did not reload")
+			ok = false
+		else:
+			print("[smoke] released %d stale year textures OK" % released)
+
+	if not await _check_scroll_hint():
+		ok = false
+	if not await _check_ending_layout():
+		ok = false
+	return ok
+
+
+func _check_scroll_hint() -> bool:
+	var host := VBoxContainer.new()
+	host.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	host.position = Vector2(8, 8)
+	host.custom_minimum_size = Vector2(220, 96)
+	host.size = Vector2(220, 96)
+	root.add_child(host)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(200, 48)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	host.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	var hint := UiStyle.make_scroll_hint()
+	host.add_child(hint)
+	UiStyle.bind_scroll_hint(scroll, hint)
+	var short := Label.new()
+	short.text = "短"
+	list.add_child(short)
+	await process_frame
+	await process_frame
+	UiStyle.refresh_scroll_hint(scroll, hint)
+	if hint.visible:
+		printerr("[smoke] FAIL scroll hint shown for a short list")
+		host.free()
+		return false
+	for i in 14:
+		var row := Label.new()
+		row.text = "很長的一行日記內容　%d" % i
+		row.custom_minimum_size = Vector2(180, 22)
+		list.add_child(row)
+	await process_frame
+	await process_frame
+	await process_frame
+	UiStyle.refresh_scroll_hint(scroll, hint)
+	if not hint.visible or hint.text != UiStyle.SCROLL_MORE:
+		var bar := scroll.get_v_scroll_bar()
+		printerr("[smoke] FAIL scroll hint hidden span=%.1f page=%.1f max=%.1f visible=%s" % [bar.max_value - bar.page, bar.page, bar.max_value, hint.visible])
+		host.free()
+		return false
+	scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
+	await process_frame
+	UiStyle.refresh_scroll_hint(scroll, hint)
+	if hint.visible:
+		printerr("[smoke] FAIL scroll hint stayed after reaching the end")
+		host.free()
+		return false
+	host.free()
+	print("[smoke] scroll hint OK")
+	return true
+
+
+func _check_ending_layout() -> bool:
+	var gs: Node = root.get_node_or_null("GameState")
+	if gs == null:
+		printerr("[smoke] FAIL ending layout: no GameState")
+		return false
+	var saved: Dictionary = gs.final_ending.duplicate(true)
+	if saved.is_empty():
+		saved = {"id": "teacher", "name": "溫柔的黑板燈", "summary": "她成為小學老師。"}
+	var blob := ""
+	for _i in 16:
+		blob += "放學以後教室還亮著，你提著熱湯走進走廊，看見她把這一年的名字寫得很輕。"
+	gs.final_ending = saved.duplicate(true)
+	gs.final_ending["summary"] = blob
+	gs.final_ending["life_line"] = blob
+	if str(gs.final_ending.get("id", "")) == "":
+		gs.final_ending["id"] = "teacher"
+	if str(gs.final_ending.get("name", "")) == "":
+		gs.final_ending["name"] = "溫柔的黑板燈"
+	var scene: Control = load("res://scenes/ending.tscn").instantiate()
+	root.add_child(scene)
+	scene.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	var ok := true
+	var sizes: Array[Vector2] = [Vector2(1280, 720), Vector2(1366, 640), Vector2(1920, 1072)]
+	for sz in sizes:
+		scene.size = sz
+		await process_frame
+		await process_frame
+		await process_frame
+		if not _ending_layout_ok(scene, sz, sz == Vector2(1280, 720)):
+			ok = false
+	scene.free()
+	gs.final_ending = saved
+	if ok:
+		print("[smoke] ending safe area OK")
+	return ok
+
+
+func _ending_layout_ok(scene: Control, sz: Vector2, require_overflow: bool) -> bool:
+	var scroll := scene.find_child("EndingScroll", true, false) as ScrollContainer
+	var hint := scene.find_child("EndingScrollHint", true, false) as Label
+	var again := scene.find_child("EndingAgain", true, false) as Button
+	var title_btn := scene.find_child("EndingTitle", true, false) as Button
+	var summary := scene.find_child("EndingSummary", true, false) as Label
+	var name_lbl := scene.find_child("EndingName", true, false) as Label
+	if scroll == null or hint == null or again == null or title_btn == null or summary == null or name_lbl == null:
+		printerr("[smoke] FAIL ending nodes missing at %s" % sz)
+		return false
+	if again.text != "再養育一次" or title_btn.text != "回標題":
+		printerr("[smoke] FAIL ending button copy at %s" % sz)
+		return false
+	if scroll.is_ancestor_of(again) or scroll.is_ancestor_of(title_btn):
+		printerr("[smoke] FAIL ending buttons sit in the scroller")
+		return false
+	var scene_rect := scene.get_global_rect()
+	for btn in [again, title_btn]:
+		var rect: Rect2 = btn.get_global_rect()
+		if rect.size.y < 36.0 or rect.position.y < scene_rect.position.y - 1.0 or rect.end.y > scene_rect.end.y + 1.0 or rect.position.x < scene_rect.position.x - 1.0 or rect.end.x > scene_rect.end.x + 1.0:
+			printerr("[smoke] FAIL ending button outside %s btn=%s scene=%s" % [sz, rect, scene_rect])
+			return false
+		if rect.position.y < scroll.get_global_rect().end.y - 2.0:
+			printerr("[smoke] FAIL ending button overlaps the story at %s" % sz)
+			return false
+	var y_before := again.get_global_rect().position.y
+	var bar := scroll.get_v_scroll_bar()
+	var span := bar.max_value - bar.page
+	if hint.text != "向下捲動看完整結局":
+		printerr("[smoke] FAIL ending hint copy %s" % hint.text)
+		return false
+	var overflow := span > 6.0
+	if hint.visible != overflow:
+		printerr("[smoke] FAIL ending hint visible=%s overflow=%s at %s span=%.1f" % [hint.visible, overflow, sz, span])
+		return false
+	if require_overflow and span < 24.0:
+		printerr("[smoke] FAIL ending body does not scroll at %s span=%.1f max=%.1f page=%.1f" % [sz, span, bar.max_value, bar.page])
+		return false
+	scroll.scroll_vertical = int(maxf(span, 0.0))
+	if absf(again.get_global_rect().position.y - y_before) > 1.0:
+		printerr("[smoke] FAIL ending buttons moved when the story scrolled")
+		return false
+	scroll.scroll_vertical = 0
+	var scroll_rect := scroll.get_global_rect()
+	if name_lbl.get_global_rect().position.y > scroll_rect.end.y - 4.0:
+		printerr("[smoke] FAIL ending title starts below the fold at %s" % sz)
+		return false
+	if summary.get_global_rect().position.y > scroll_rect.end.y - 4.0:
+		printerr("[smoke] FAIL ending summary starts below the fold at %s" % sz)
+		return false
 	return true
 
 

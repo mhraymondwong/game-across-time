@@ -108,11 +108,11 @@ body {
 
 #status-caption {
 	margin: 0;
+	max-width: min(440px, 72vw);
 	color: #8d4d58;
 	font-family: "Songti TC", "PMingLiU", "Noto Serif CJK TC", Palatino, "Palatino Linotype", serif;
-	font-size: 13px;
-	letter-spacing: 0.42em;
-	text-indent: 0.42em;
+	font-size: 14px;
+	letter-spacing: 0.08em;
 	animation: diary-pulse 1.6s ease-in-out infinite;
 }
 
@@ -190,7 +190,7 @@ body {
 			</div>
 			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="時光裡的她">
 			<div id="status-loading">
-				<p id="status-caption">載入中</p>
+				<p id="status-caption">正在讀入圖冊</p>
 				<progress id="status-progress"></progress>
 			</div>
 			<div id="status-notice"></div>
@@ -207,6 +207,26 @@ const engine = new Engine(GODOT_CONFIG);
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
 	const statusLoading = document.getElementById('status-loading');
+	const statusCaption = document.getElementById('status-caption');
+	const PACK_CAPTIONS = {
+		family: '家人的圖',
+		dialogue: '對話的紙',
+		album: '相簿',
+		travel: '遠行的風景',
+		adulthood: '成年的日子',
+	};
+
+	function setCaption(text) {
+		if (statusCaption && text) {
+			statusCaption.textContent = text;
+		}
+	}
+
+	function packCaption(entry, ordinal, total) {
+		var id = entry && entry.id ? String(entry.id) : '';
+		var label = PACK_CAPTIONS[id] || '圖冊';
+		return '正在讀入' + label + '　' + ordinal + '／' + total;
+	}
 
 	let initializing = true;
 	let statusMode = '';
@@ -296,8 +316,10 @@ const engine = new Engine(GODOT_CONFIG);
 		// Files are copied into the engine FS before start, so the autoload
 		// can load them before the title scene. The diary splash stays up.
 		preloadExtraPacks(engine).then(function () {
+			setCaption('正在打開日記');
 			return engine.startGame({
 				'onProgress': function (current, total) {
+					setCaption('正在打開日記');
 					if (current > 0 && total > 0) {
 						statusProgress.value = current;
 						statusProgress.max = total;
@@ -346,10 +368,13 @@ const engine = new Engine(GODOT_CONFIG);
 		var index = 0;
 		function next() {
 			if (index >= packs.length) {
+				setCaption('正在打開日記');
 				return Promise.resolve();
 			}
 			var entry = packs[index];
+			var ordinal = index + 1;
 			index += 1;
+			setCaption(packCaption(entry, ordinal, packs.length));
 			var file = entry && entry.file;
 			if (typeof file !== 'string' || file.length === 0) {
 				return Promise.reject(new Error('packs.json 裡有一個資源包沒有 file'));

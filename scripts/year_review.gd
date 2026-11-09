@@ -3,6 +3,7 @@ extends Control
 
 
 func _ready() -> void:
+	GameState.hide_busy()
 	UiStyle.make_bg(self, GameConfig.COL_BG)
 	var review: Dictionary = GameState.last_year_review
 	if review.is_empty():
@@ -275,5 +276,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_continue() -> void:
+	GameState.show_busy("正在翻到下一頁…")
+	await get_tree().process_frame
 	var next := GameState.continue_after_year_review()
 	get_tree().change_scene_to_file(Adulthood.scene_after_review(GameState, next))

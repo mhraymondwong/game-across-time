@@ -170,12 +170,46 @@ static func season_note(state: Node) -> String:
 	]
 
 
+static func ranked_affinity(state: Node) -> Array:
+	var rows: Array = []
+	for d in DEFS:
+		var id := str(d.get("id", ""))
+		rows.append({
+			"id": id,
+			"name": str(d.get("name", "")),
+			"start": int(d.get("start", 0)),
+			"value": value_of(state, id),
+		})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("value", 0)) > int(b.get("value", 0))
+	)
+	return rows
+
+
+## Up to three people, not only the single highest heart.
+## Close (36+) or clearly grown (+8 from the start) both count.
+static func year_highlights(state: Node) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for row in ranked_affinity(state):
+		var v := int(row.get("value", 0))
+		var start := int(row.get("start", 0))
+		var close_enough := v >= 36
+		var grew := v >= start + 8
+		if not close_enough and not grew:
+			continue
+		if v < 28 and out.is_empty():
+			continue
+		out.append("人際・和%s更親近了（好感 %d）" % [str(row.get("name", "")), v])
+		if out.size() >= 3:
+			break
+	return out
+
+
 static func year_highlight(state: Node) -> String:
-	var top := highest(state)
-	var v := int(top.get("value", 0))
-	if v < 40:
+	var lines := year_highlights(state)
+	if lines.is_empty():
 		return ""
-	return "人際・和%s更親近了（好感 %d）" % [str(top.get("name", "")), v]
+	return lines[0]
 
 
 static func hub_line(state: Node) -> String:

@@ -119,3 +119,55 @@ func _read_text(path: String) -> String:
 	if not FileAccess.file_exists(path):
 		return ""
 	return FileAccess.get_file_as_string(path)
+
+
+## Godot 4.7 can load a .pck but cannot unload one. Web still downloads every
+## pack at the splash (see export/web_shell.html). After a year changes, drop
+## cached textures from age bands and adult years the diary is no longer showing.
+## The current year and the previous year stay, so 「長高了」 can still compare them.
+func release_stale_year_art(current_year: int) -> int:
+	var released := 0
+	var keep_year := {
+		current_year: true,
+		maxi(1, current_year - 1): true,
+	}
+	for y in range(GameConfig.ADULT_START_YEAR, GameConfig.TOTAL_YEARS + 1):
+		if keep_year.has(y):
+			continue
+		for season_key in GameConfig.SEASON_KEYS:
+			for folder in ["res://assets/adulthood/", "res://assets/wardrobe/"]:
+				for ext in ["png", "jpg"]:
+					var plate := "%sadult_y%d_%s.%s" % [folder, y, season_key, ext]
+					if _release_cached(plate):
+						released += 1
+	var keep_band := {
+		AgeLooks.band_for_year(current_year): true,
+		AgeLooks.band_for_year(maxi(1, current_year - 1)): true,
+	}
+	for band in AgeLooks.BANDS:
+		if keep_band.has(band):
+			continue
+		for stem in [
+			"res://assets/family/daughter_%s" % band,
+			"res://assets/family/mom_%s_cutout" % band,
+			"res://assets/family/mom_%s_bust" % band,
+			"res://assets/family/dad_%s" % band,
+			"res://assets/family/family_%s" % band,
+		]:
+			for ext in ["png", "jpg"]:
+				if _release_cached("%s.%s" % [stem, ext]):
+					released += 1
+	if released > 0:
+		print("[packs] released %d stale year textures (year %d)" % [released, current_year])
+	return released
+
+
+func _release_cached(path: String) -> bool:
+	if path == "" or not ResourceLoader.has_cached(path):
+		return false
+	var res := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_REUSE)
+	if res == null:
+		return false
+	if res.resource_path == path:
+		res.take_over_path("")
+	return not ResourceLoader.has_cached(path)

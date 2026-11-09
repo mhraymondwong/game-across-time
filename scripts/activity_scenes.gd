@@ -193,9 +193,34 @@ const BY_ID := {
 }
 
 
-static func get_vignette(activity_id: String, season: int) -> Dictionary:
+## Shown only when all three months are 家務與照顧, so a chores season
+## does not repeat 「家裡的碗」 three times and again next year.
+## Index 0 matches the original vignette. A mixed season keeps that line.
+const CHORE_VARIANTS: Array[Dictionary] = [
+	{
+		"title": "家裡的碗",
+		"body": "她堅持自己洗碗，泡沫堆得比盤子還高。你在一旁切水果，步驟留給她，只在她問的時候搭腔。擦乾最後一只碗，她把抹布疊好，像完成一件很正式的事。家裡的燈因此亮得更順眼。",
+	},
+	{
+		"title": "摺好的衣服",
+		"body": "她把洗好的衣服一疊疊對齊，袖口折得有點歪，又拆開重來。你沒有出手，只把下一件遞給她。疊完她說，這樣明天早上就不用找。房間的氣味是皂香。",
+	},
+	{
+		"title": "擦過的桌面",
+		"body": "飯後她拿抹布把桌子擦了兩遍，連湯匙印也要消失。你把椅子推回去，她點點頭，像在核對一件小事。窗外的天色慢慢暗，家裡卻先亮了。",
+	},
+]
+
+
+static func chore_variant_index(year: int, month_index: int) -> int:
+	return posmod(year + month_index, CHORE_VARIANTS.size())
+
+
+static func get_vignette(activity_id: String, season: int, variant: int = -1) -> Dictionary:
 	var src: Dictionary = {}
-	if BY_ID.has(activity_id):
+	if activity_id == "virtue_chores" and variant >= 0:
+		src = CHORE_VARIANTS[posmod(variant, CHORE_VARIANTS.size())]
+	elif BY_ID.has(activity_id):
 		src = BY_ID[activity_id]
 	var def := Activities.get_activity(activity_id)
 	var title := str(src.get("title", ""))

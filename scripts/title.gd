@@ -12,6 +12,7 @@ var _name_error: Label
 
 
 func _ready() -> void:
+	GameState.hide_busy()
 	_build_cover_bg()
 	_build_bottom_cluster()
 	_build_slot_layer()
@@ -177,6 +178,15 @@ func _rebuild_slots() -> void:
 		_slot_title.text = "翻開哪一本相簿"
 	else:
 		_slot_title.text = "讀檔"
+	if _slot_mode == "load" and GameState.has_autosave():
+		var auto_preview: Dictionary = GameState.autosave_preview()
+		var auto_btn := Button.new()
+		auto_btn.text = "%s\n%s" % [str(auto_preview.get("title", "自動留下的一頁")), str(auto_preview.get("detail", ""))]
+		auto_btn.custom_minimum_size = Vector2(0, 72)
+		UiStyle.apply_soft_chip(auto_btn, Color("FFD0E4"))
+		auto_btn.add_theme_font_size_override("font_size", 16)
+		auto_btn.pressed.connect(_on_autosave)
+		_slot_list.add_child(auto_btn)
 	for i in range(3):
 		var preview: Dictionary = GameState.save_slot_preview(i)
 		var btn := Button.new()
@@ -338,7 +348,18 @@ func _on_name_confirm() -> void:
 		_name_error.text = err
 		return
 	GameState.wants_new_game_name = false
+	GameState.show_busy("正在翻開新的一頁…")
+	await get_tree().process_frame
 	GameState.begin_new_game(cleaned)
+	get_tree().change_scene_to_file("res://scenes/home_hub.tscn")
+
+
+func _on_autosave() -> void:
+	GameState.show_busy("正在翻開這一頁…")
+	await get_tree().process_frame
+	if not GameState.load_autosave():
+		GameState.hide_busy()
+		return
 	get_tree().change_scene_to_file("res://scenes/home_hub.tscn")
 
 
@@ -348,6 +369,9 @@ func _on_slot(slot: int) -> void:
 			return
 		get_tree().change_scene_to_file("res://scenes/album.tscn")
 		return
+	GameState.show_busy("正在翻開這一頁…")
+	await get_tree().process_frame
 	if not GameState.load_game(slot):
+		GameState.hide_busy()
 		return
 	get_tree().change_scene_to_file("res://scenes/home_hub.tscn")

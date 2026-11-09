@@ -96,6 +96,50 @@ static func apply_sticker_chip(btn: Button, selected: bool = false, filled: bool
 	btn.add_theme_stylebox_override("pressed", button_style(fill.darkened(0.05), border.darkened(0.1), 22))
 
 
+const SCROLL_MORE := "向下還有"
+
+
+static func make_scroll_hint(text: String = SCROLL_MORE) -> Label:
+	var hint := Label.new()
+	hint.name = "ScrollHint"
+	hint.text = text
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint.visible = false
+	apply_label(hint, 12, true)
+	return hint
+
+
+static func bind_scroll_hint(scroll: ScrollContainer, hint: Label) -> void:
+	if scroll == null or hint == null:
+		return
+	var refresh := func() -> void:
+		refresh_scroll_hint(scroll, hint)
+	if not scroll.resized.is_connected(refresh):
+		scroll.resized.connect(refresh)
+	var bar := scroll.get_v_scroll_bar()
+	if bar != null:
+		if not bar.changed.is_connected(refresh):
+			bar.changed.connect(refresh)
+		if not bar.value_changed.is_connected(refresh):
+			bar.value_changed.connect(func(_v: float) -> void:
+				refresh_scroll_hint(scroll, hint)
+			)
+	refresh_scroll_hint(scroll, hint)
+
+
+static func refresh_scroll_hint(scroll: ScrollContainer, hint: Label) -> void:
+	if scroll == null or hint == null or not is_instance_valid(scroll) or not is_instance_valid(hint):
+		return
+	var bar := scroll.get_v_scroll_bar()
+	if bar == null:
+		hint.visible = false
+		return
+	var overflow := bar.max_value > bar.page + 8.0
+	var at_bottom := float(scroll.scroll_vertical) >= bar.max_value - bar.page - 8.0
+	hint.visible = overflow and not at_bottom
+
+
 static func apply_label(lbl: Label, size: int = 18, muted: bool = false) -> void:
 	lbl.add_theme_color_override("font_color", GameConfig.COL_TEXT_MUTED if muted else GameConfig.COL_TEXT)
 	lbl.add_theme_font_size_override("font_size", size)
